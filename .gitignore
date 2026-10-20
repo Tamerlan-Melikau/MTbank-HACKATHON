@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+# генерируется из design-system/project/tokens.json
+src/ui/theme/tokens.css

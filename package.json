@@ -1,0 +1,30 @@
+{
+  "name": "family-wallet",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Детско-семейный банкинг в Moby — прототип (хакатон МТБанка)",
+  "scripts": {
+    "tokens": "node scripts/build-tokens.mjs",
+    "predev": "npm run tokens",
+    "dev": "vite --host",
+    "prebuild": "npm run tokens",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "typecheck": "npm run tokens && tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm test"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "~5.8",
+    "vite": "^6.4.4",
+    "vitest": "^3.2.7"
+  }
+}

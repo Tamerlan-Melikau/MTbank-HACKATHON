@@ -1,0 +1,441 @@
+/*
+ * Стили UI-кита. Это ЗАМЕНЯЕМЫЙ слой: при редизайне переписывается он и src/ui/*.tsx,
+ * домен, API и логика экранов остаются.
+ */
+
+/* ---------- Каркас: мобильная колонка, на десктопе — по центру ---------- */
+.ui-app {
+  position: relative;
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--surface-100);
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+.ui-app--no-tabs {
+  padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom));
+}
+@media (min-width: 520px) {
+  body { background: var(--surface-300); }
+  .ui-app { box-shadow: var(--shadow-card); }
+}
+
+.ui-page {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ---------- Шапка экрана с «Назад» ---------- */
+.ui-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 56px;
+  padding: calc(var(--space-2) + env(safe-area-inset-top)) var(--space-2) var(--space-2);
+  background: var(--surface-100);
+}
+.ui-topbar__title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-topbar__spacer { width: 44px; }
+
+.ui-iconbtn {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  position: relative;
+}
+.ui-iconbtn:active { background: var(--brand-soft); }
+
+/* ---------- BalanceHeader ---------- */
+.ui-balance {
+  background: var(--brand);
+  color: var(--on-brand);
+  padding: calc(var(--space-5) + env(safe-area-inset-top)) var(--space-4) var(--space-5);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.ui-balance__row { display: flex; align-items: center; gap: var(--space-3); }
+.ui-balance__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-soft);
+  color: var(--brand);
+  display: grid;
+  place-items: center;
+  border: 0;
+  position: relative;
+  cursor: pointer;
+  flex: none;
+}
+.ui-balance__name { flex: 1; min-width: 0; }
+.ui-balance__caption { margin-top: var(--space-3); }
+.ui-balance__sum {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 var(--space-4);
+}
+.ui-balance__sum button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  text-align: left;
+  padding: 0;
+}
+.ui-balance .ui-iconbtn { color: var(--on-brand); }
+
+/* ---------- QuickActions ---------- */
+.ui-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+}
+.ui-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  min-width: 0;
+}
+.ui-action__icon {
+  width: 100%;
+  height: 56px;
+  border-radius: var(--radius-md);
+  background: var(--surface-300);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  transition: background-color 0.15s;
+}
+.ui-balance .ui-action__icon { background: var(--surface-200); }
+.ui-action:active .ui-action__icon { background: var(--brand-soft); }
+.ui-action__label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- TabBar ---------- */
+.ui-tabbar {
+  position: fixed;
+  z-index: 20;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  padding: var(--space-2) var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom));
+  background: var(--surface-200);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-1);
+}
+.ui-tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  min-height: 44px;
+  border-radius: var(--radius-md);
+  color: var(--ink-muted);
+}
+.ui-tab[aria-current='page'] { background: var(--brand-soft); color: var(--brand); }
+
+.ui-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--type-caption-size);
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+.ui-tab .ui-badge { top: 2px; right: calc(50% - 26px); }
+
+/* ---------- Баннер ---------- */
+.ui-banner {
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.ui-banner--accent { background: var(--accent); color: var(--on-accent); }
+.ui-banner--brand { background: var(--brand); color: var(--on-brand); }
+.ui-banner__action {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* ---------- Карточки, секции, списки ---------- */
+.ui-section { display: flex; flex-direction: column; gap: var(--space-3); }
+.ui-section__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+
+.ui-card {
+  background: var(--surface-200);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+.ui-card--flush { padding: 0; overflow: hidden; }
+
+.ui-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 56px;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: default;
+}
+button.ui-row, a.ui-row { cursor: pointer; }
+button.ui-row:active, a.ui-row:active { background: var(--brand-soft); }
+.ui-row + .ui-row { border-top: 1px solid var(--surface-300); }
+.ui-row__icon {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: var(--radius-pill);
+  background: var(--brand-soft);
+  color: var(--brand);
+  display: grid;
+  place-items: center;
+}
+.ui-row__icon--muted { background: var(--surface-300); color: var(--ink); }
+.ui-row__icon--accent { background: var(--accent); color: var(--on-accent); }
+.ui-row__body { flex: 1; min-width: 0; }
+.ui-row__title { overflow: hidden; text-overflow: ellipsis; }
+.ui-row__end { flex: none; text-align: right; display: flex; align-items: center; gap: var(--space-1); }
+.ui-row__chev { color: var(--line); }
+
+/* ---------- Кнопки ---------- */
+.ui-btn {
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line);
+  font-weight: var(--type-label-weight);
+}
+.ui-btn--primary { background: var(--brand); color: var(--on-brand); }
+.ui-btn--secondary { background: var(--surface-300); color: var(--ink); }
+.ui-btn--ghost { background: transparent; color: var(--brand); }
+.ui-btn--danger { background: var(--surface-300); color: var(--negative); }
+.ui-btn--block { width: 100%; }
+.ui-btn--small { min-height: 44px; padding: 0 var(--space-3); }
+.ui-btn:disabled { opacity: 0.5; cursor: default; }
+.ui-btn:not(:disabled):active { filter: brightness(0.92); }
+.ui-btnrow { display: flex; gap: var(--space-2); }
+.ui-btnrow > * { flex: 1; }
+
+/* ---------- Поля ---------- */
+.ui-field { display: flex; flex-direction: column; gap: var(--space-1); }
+.ui-input {
+  min-height: 48px;
+  width: 100%;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-200);
+  color: var(--ink);
+  /* 16px — меньше iOS увеличивает страницу при фокусе. Осознанное отступление от body 15px. */
+  font-size: 16px;
+}
+.ui-input:focus { outline: 2px solid var(--ink); outline-offset: 2px; }
+select.ui-input { appearance: none; background-image: none; }
+
+.ui-check {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  min-height: 44px;
+  padding: var(--space-2) 0;
+  cursor: pointer;
+}
+.ui-check input { width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--brand); flex: none; }
+
+/* ---------- Сегменты и чипы ---------- */
+.ui-segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--surface-300);
+  border-radius: var(--radius-sm);
+}
+.ui-segmented button {
+  min-height: 40px;
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 4px);
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+}
+.ui-segmented button[aria-pressed='true'] { background: var(--surface-200); color: var(--ink); box-shadow: var(--shadow-card); }
+.ui-segmented button:disabled { opacity: 0.4; cursor: default; }
+
+.ui-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.ui-chip {
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 0;
+  background: var(--surface-300);
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+}
+.ui-chip[aria-pressed='true'] { background: var(--brand-soft); color: var(--brand); }
+
+/* ---------- Переключатель ---------- */
+.ui-switch {
+  position: relative;
+  width: 52px;
+  height: 32px;
+  flex: none;
+  border-radius: var(--radius-pill);
+  border: 0;
+  background: var(--surface-300);
+  box-shadow: inset 0 0 0 1px var(--line);
+  cursor: pointer;
+  /* Расширяем зону касания до 44px */
+  margin: 6px 0;
+}
+.ui-switch::before { content: ''; position: absolute; inset: -6px -2px; }
+.ui-switch::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-200);
+  box-shadow: 0 0 0 1px var(--line);
+  transition: transform 0.15s;
+}
+.ui-switch[aria-checked='true'] { background: var(--brand); box-shadow: none; }
+.ui-switch[aria-checked='true']::after { transform: translateX(20px); box-shadow: none; }
+
+/* ---------- Прогресс ---------- */
+.ui-progress { height: 8px; border-radius: var(--radius-pill); background: var(--surface-300); overflow: hidden; }
+.ui-progress > span { display: block; height: 100%; background: var(--brand); border-radius: inherit; }
+
+/* ---------- Замок «доступ запрещён» ---------- */
+.ui-locked {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-300);
+}
+.ui-locked__icon { color: var(--ink); flex: none; margin-top: 2px; }
+
+/* ---------- Пустое состояние, загрузка ---------- */
+.ui-empty { padding: var(--space-4); color: var(--ink-muted); text-align: center; }
+.ui-skeleton {
+  height: 72px;
+  border-radius: var(--radius-md);
+  background: var(--surface-300);
+  animation: ui-pulse 1.2s ease-in-out infinite;
+}
+@keyframes ui-pulse { 50% { opacity: 0.5; } }
+
+/* ---------- Тосты ---------- */
+.ui-toasts {
+  position: fixed;
+  z-index: 50;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(var(--space-4) + env(safe-area-inset-top));
+  width: calc(100% - 2 * var(--space-4));
+  max-width: 448px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+.ui-toast {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--ink);
+  color: var(--surface-100);
+  box-shadow: var(--shadow-card);
+}
+.ui-toast--error { background: var(--negative); color: var(--surface-200); }
+
+/* ---------- Демо-плашка ---------- */
+.ui-demo-note {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  color: var(--ink-muted);
+}
+
+.ui-stack { display: flex; flex-direction: column; gap: var(--space-3); }
+.ui-stack--tight { gap: var(--space-1); }
+.ui-between { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+.ui-amount { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ---------- Узкие экраны (320–359px: iPhone SE 1, компактные Android) ---------- */
+@media (max-width: 359px) {
+  .ui-page { padding-left: var(--space-3); padding-right: var(--space-3); }
+  .ui-balance { padding-left: var(--space-3); padding-right: var(--space-3); }
+  .ui-actions { gap: var(--space-1); }
+  .ui-action__label { letter-spacing: -0.02em; }
+  .ui-row { padding-left: var(--space-3); padding-right: var(--space-3); }
+}
