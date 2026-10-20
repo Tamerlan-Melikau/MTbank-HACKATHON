@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { api, ApiError, type Persona } from '@/api';
 import { useAction, useQuery } from '@/app/data';
 import { toast } from '@/app/toast';
-import { Button, Card, DemoNote, Field, Locked, Page, Row, Section } from '@/ui/kit';
+import { Button, Card, DemoNote, Field, Hero, Locked, Page, Row, Section } from '@/ui/kit';
 import { Load } from '../shared';
 
 type View = { kind: 'list' } | { kind: 'code' } | { kind: 'no-access'; persona: Persona; status: string };
@@ -47,10 +47,7 @@ export function Welcome() {
 
   return (
     <Page>
-      <div style={{ paddingTop: 'calc(24px + env(safe-area-inset-top))' }} className="ui-stack">
-        <h1 className="t-title" style={{ margin: 0 }}>Семейный кошелёк</h1>
-        <p className="t-body muted" style={{ margin: 0 }}>Детско-семейный банкинг в Moby</p>
-      </div>
+      <Hero tag="Moby · МТБанк" title="Семейный кошелёк" text="Детям — деньги, родителям — спокойствие. Одно решение для всей семьи." />
 
       {view.kind === 'list' && (
         <>

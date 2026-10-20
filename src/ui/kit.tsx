@@ -139,6 +139,17 @@ export function PromoBanner(props: { tone?: 'accent' | 'brand'; title: string; t
   );
 }
 
+/** Цветная заставка вверху экрана без шапки баланса (вход, онбординг). */
+export function Hero({ tag, title, text }: { tag?: string; title: string; text?: string }) {
+  return (
+    <header className="ui-hero">
+      {tag && <span className="ui-hero__tag t-label">{tag}</span>}
+      <h1 className="t-title" style={{ margin: 0 }}>{title}</h1>
+      {text && <p className="t-body" style={{ margin: 0 }}>{text}</p>}
+    </header>
+  );
+}
+
 export function Section({ title, end, children }: { title?: string; end?: ReactNode; children: ReactNode }) {
   return (
     <section className="ui-section">
