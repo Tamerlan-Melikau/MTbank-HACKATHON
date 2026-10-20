@@ -1,0 +1,16 @@
+<!-- @dsCard group="Экран" height=170 subtitle="Четыре действия на светлом фоне" -->
+<style>
+body{margin:0;background:var(--surface-100);font-family:var(--font-sans);color:var(--ink)}
+.acts{width:360px;margin:24px auto;display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-2)}
+.a{display:flex;flex-direction:column;align-items:center;gap:var(--space-1);font-size:13px;line-height:18px;font-weight:600}
+.a i{width:100%;height:56px;border-radius:var(--radius-md);background:var(--surface-300);display:grid;place-items:center}
+.a.on i{background:var(--brand-soft)}
+.a svg{stroke:var(--ink);fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.a.on svg{stroke:var(--brand)}
+</style>
+<div class="acts">
+<div class="a"><i><svg width="26" height="26" viewBox="0 0 24 24"><path d="M12 4v10M8 10l4 4 4-4M4 14v5h16v-5"/></svg></i>Пополнить</div>
+<div class="a on"><i><svg width="26" height="26" viewBox="0 0 24 24"><path d="M4 9h14M14 5l4 4-4 4M20 16H6M10 12l-4 4 4 4"/></svg></i>Перевести</div>
+<div class="a"><i><svg width="26" height="26" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="12" rx="3"/><path d="M4 11h16"/></svg></i>Оплатить</div>
+<div class="a"><i><svg width="26" height="26" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></i>Погасить</div>
+</div>

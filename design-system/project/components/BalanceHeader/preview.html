@@ -1,0 +1,28 @@
+<!-- @dsCard group="Экран" height=360 subtitle="Баланс и четыре действия" -->
+<style>
+body{margin:0;background:var(--surface-100);font-family:var(--font-sans);color:var(--ink)}
+.wrap{width:360px;margin:16px auto}
+.hd{background:var(--brand);color:var(--on-brand);padding:var(--space-5) var(--space-4) var(--space-5);border-radius:0 0 var(--radius-lg) var(--radius-lg)}
+.row{display:flex;align-items:center;gap:var(--space-3)}
+.av{width:44px;height:44px;border-radius:var(--radius-pill);background:var(--brand-soft);display:grid;place-items:center;position:relative}
+.av svg{stroke:var(--brand)}
+.badge{position:absolute;top:-4px;right:-6px;min-width:20px;height:20px;border-radius:var(--radius-pill);background:var(--accent);color:var(--on-accent);font-size:12px;font-weight:700;display:grid;place-items:center}
+.t{font-size:22px;line-height:28px;font-weight:700}
+.cap{font-size:12px;line-height:16px;opacity:1;margin-top:var(--space-3)}
+.sum{font-size:34px;line-height:38px;font-weight:800;margin:var(--space-1) 0 var(--space-4)}
+.acts{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-2)}
+.a{display:flex;flex-direction:column;align-items:center;gap:var(--space-1);font-size:13px;line-height:18px;font-weight:600}
+.a i{width:100%;height:56px;border-radius:var(--radius-md);background:var(--surface-200);display:grid;place-items:center}
+.a svg{stroke:var(--ink)}
+svg{fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+</style>
+<div class="wrap"><div class="hd">
+<div class="row"><div class="av"><svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg><span class="badge">2</span></div><div class="t">Мой кошелёк</div></div>
+<div class="cap">Основной счёт · •••• 1234</div>
+<div class="sum">1 938,22 BYN</div>
+<div class="acts">
+<div class="a"><i><svg width="26" height="26" viewBox="0 0 24 24"><path d="M12 4v10M8 10l4 4 4-4M4 14v5h16v-5"/></svg></i>Пополнить</div>
+<div class="a"><i><svg width="26" height="26" viewBox="0 0 24 24"><path d="M4 9h14M14 5l4 4-4 4M20 16H6M10 12l-4 4 4 4"/></svg></i>Перевести</div>
+<div class="a"><i><svg width="26" height="26" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="12" rx="3"/><path d="M4 11h16"/></svg></i>Оплатить</div>
+<div class="a"><i><svg width="26" height="26" viewBox="0 0 24 24"><rect x="4" y="9" width="16" height="11" rx="2"/><path d="M12 9v11M4 13h16M12 9c-3 0-4-4-1-4 2 0 1 4 1 4zm0 0c3 0 4-4 1-4-2 0-1 4-1 4z"/></svg></i>Баллы</div>
+</div></div></div>

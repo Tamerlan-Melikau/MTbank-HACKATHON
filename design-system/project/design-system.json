@@ -1,0 +1,25 @@
+{
+  "v": 3,
+  "assetGroups": {},
+  "blobs": {},
+  "createdOnFiles": {
+    "at": "2026-10-20T08:06:09Z",
+    "v": 1
+  },
+  "docs": {
+    "readme": "project/README.md",
+    "sections": []
+  },
+  "groups": [],
+  "lastChange": {
+    "at": "2026-10-20T08:06:09Z",
+    "by": "rui",
+    "note": "Первая версия: токены, README, обложка, 4 компонента",
+    "via": "Claude (Cowork)"
+  },
+  "layout": "files",
+  "libraries": [],
+  "namespace": "FamilyWallet",
+  "sections": {},
+  "title": "Семейный кошелёк"
+}
