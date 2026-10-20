@@ -3,7 +3,7 @@ import { api } from '@/api';
 import { useAction, useQuery } from '@/app/data';
 import { goBack } from '@/app/router';
 import { toast } from '@/app/toast';
-import { formatMoney, parseMoney, presetLimits, type Limits as LimitsT, type Money } from '@/domain';
+import { formatMoney, parseMoney, presetLimits, type AgeGroup, type Limits as LimitsT, type Money } from '@/domain';
 import { Button, Field, Screen, Section } from '@/ui/kit';
 import { Load } from '../shared';
 
@@ -17,6 +17,8 @@ const FIELDS: { key: keyof LimitsT; label: string; hint: string }[] = [
   { key: 'approvalFrom', label: 'Подтверждать покупки от', hint: 'Такие покупки ждут вашего подтверждения' },
 ];
 
+const fieldsFor = (group: AgeGroup) => FIELDS.filter((f) => group !== 'junior' || f.key !== 'perTransaction');
+
 export function Limits({ id }: { id: string }) {
   const q = useQuery(() => api.childOverview(id), [id]);
   const [form, setForm] = useState<Form | null>(null);
@@ -27,9 +29,9 @@ export function Limits({ id }: { id: string }) {
     }
   }, [q.data, form]);
 
-  const [save, saving] = useAction(async (f: Form) => {
-    const limits = {} as LimitsT;
-    for (const { key, label } of FIELDS) {
+  const [save, saving] = useAction(async (f: Form, group: AgeGroup) => {
+    const limits: LimitsT = { perTransaction: null, daily: null, monthly: null, approvalFrom: null };
+    for (const { key, label } of fieldsFor(group)) {
       const raw = f[key].trim();
       if (!raw) {
         limits[key] = null;
@@ -50,10 +52,10 @@ export function Limits({ id }: { id: string }) {
         <Screen title="Лимиты" back={`/child/${id}`}>
           {form && (
             <Section>
-              {FIELDS.map((f) => (
+              {fieldsFor(o.settings.ageGroup).map((f) => (
                 <Field key={f.key} label={`${f.label}, BYN`} hint={f.hint} inputMode="decimal" value={form[f.key]} onChange={(v) => setForm({ ...form, [f.key]: v })} />
               ))}
-              <Button block onClick={() => save(form)} disabled={saving}>
+              <Button block onClick={() => save(form, o.settings.ageGroup)} disabled={saving}>
                 Сохранить
               </Button>
               <Button

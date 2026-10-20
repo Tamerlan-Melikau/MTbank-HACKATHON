@@ -142,7 +142,7 @@ export interface Allowance {
   parentId: Id;
   childId: Id;
   amount: Money;
-  period: 'weekly' | 'monthly';
+  period: 'monthly';
   nextRunAt: IsoDateTime;
   active: boolean;
 }
@@ -151,10 +151,36 @@ export interface Allowance {
 export type AccessRequestPayload =
   | { type: 'capability'; capabilityId: CapabilityId; level: Level }
   | { type: 'purchase'; transactionId: Id }
+  | { type: 'transfer'; recipient: string; recipientId?: Id; amount: Money }
   | { type: 'money'; amount: Money }
   | { type: 'limit'; limit: keyof Limits; amount: Money }
   | { type: 'moby-access' }
-  | { type: 'product'; productId: string };
+  | { type: 'product'; productId: string }
+  | { type: 'goal_withdraw'; goalId: Id; amount: Money }
+  | { type: 'goal_close'; goalId: Id }
+  | { type: 'deposit_close' }
+  | { type: 'deposit_withdraw'; amount: Money }
+  | { type: 'deposit_transfer'; amount: Money; recipientId: Id; recipient: string };
+
+/** Часть входящего поступления, которую можно отложить на цель. */
+export interface IncomingAllocation {
+  id: Id;
+  familyId: Id;
+  childId: Id;
+  amount: Money;
+  title: string;
+  status: 'pending' | 'done' | 'skipped';
+  goalId: Id | null;
+  allocated: Money;
+  createdAt: IsoDateTime;
+  resolvedAt: IsoDateTime | null;
+  resolvedBy: Id | null;
+}
+
+export type AllocationInput =
+  | { unit: 'percent'; percent: number }
+  | { unit: 'amount'; amount: Money }
+  | { unit: 'skip' };
 
 export interface AccessRequest {
   id: Id;

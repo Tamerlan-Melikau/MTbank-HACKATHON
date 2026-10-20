@@ -10,6 +10,7 @@ import type {
   ChildSettings,
   Consent,
   Family,
+  IncomingAllocation,
   LessonProgress,
   Member,
   Notification,
@@ -18,7 +19,7 @@ import type {
   Transaction,
 } from '@/domain';
 
-export const DB_VERSION = 1;
+export const DB_VERSION = 4;
 
 export interface Db {
   version: number;
@@ -31,6 +32,7 @@ export interface Db {
   cards: Card[];
   transactions: Transaction[];
   allowances: Allowance[];
+  allocations: IncomingAllocation[];
   requests: AccessRequest[];
   tasks: Task[];
   lessons: LessonProgress[];
@@ -50,6 +52,7 @@ export function emptyDb(): Db {
     cards: [],
     transactions: [],
     allowances: [],
+    allocations: [],
     requests: [],
     tasks: [],
     lessons: [],

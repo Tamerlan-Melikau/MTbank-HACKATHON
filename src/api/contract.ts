@@ -12,6 +12,7 @@ import type {
   AccessRequestPayload,
   Account,
   AgeGroup,
+  AllocationInput,
   Allowance,
   CapabilityId,
   Card,
@@ -21,6 +22,7 @@ import type {
   ConsentType,
   Family,
   Id,
+  IncomingAllocation,
   Level,
   Limits,
   Member,
@@ -97,12 +99,43 @@ export interface ChildOverview {
   spentToday: Money;
   spentMonth: Money;
   allowance: Allowance | null;
+  pendingAllocation: IncomingAllocation | null;
   points: number;
   pendingRequests: AccessRequest[];
 }
 
 export interface PayInput extends PaymentOp {
   merchant: string;
+}
+
+/** Перевод другому человеку по имени или номеру телефона. */
+export interface TransferInput {
+  amount: Money;
+  recipient: string;
+  /** Для ребёнка до 14 лет обязателен: родитель или брат/сестра. */
+  recipientId?: Id;
+  comment?: string;
+}
+
+export interface DepositMoveInput {
+  amount: Money;
+  /** null — на свой основной счёт, иначе — id члена семьи. */
+  recipientId: Id | null;
+  recipient: string;
+}
+
+export interface TransferRecipient {
+  memberId: Id;
+  title: string;
+  subtitle: string;
+  role: Role;
+}
+
+export interface TransferResult {
+  /** Для ребёнка до 14 лет — созданный запрос родителю. */
+  requestId: Id | null;
+  /** Для подростка или после одобрения — сразу проведённая операция. */
+  transaction: Transaction | null;
 }
 
 export interface PayResult {
@@ -144,6 +177,8 @@ export interface BankApi {
 
   // --- Родитель ---
   enroll(input: EnrollInput): Promise<{ childId: Id }>;
+  /** Удаляет профиль ребёнка и все связанные данные без возможности восстановления. */
+  deleteChild(childId: Id): Promise<void>;
   setCapability(childId: Id, id: CapabilityId, level: Level): Promise<void>;
   setLimits(childId: Id, limits: Limits): Promise<void>;
   setBlockedCategories(childId: Id, categories: CategoryId[]): Promise<void>;
@@ -153,18 +188,27 @@ export interface BankApi {
   inviteToMoby(childId: Id): Promise<{ code: string }>;
   confirmMoby(childId: Id): Promise<void>;
   setMobySuspended(childId: Id, suspended: boolean): Promise<void>;
-  topUpChild(childId: Id, amount: Money): Promise<void>;
-  setAllowance(childId: Id, value: { amount: Money; period: Allowance['period'] } | null): Promise<void>;
+  topUpChild(childId: Id, amount: Money, targetAccountId?: Id): Promise<{ allocation: IncomingAllocation | null }>;
+  openDeposit(childId: Id): Promise<void>;
+  closeDeposit(childId: Id): Promise<void>;
+  moveDeposit(input: DepositMoveInput): Promise<{ requestId: Id | null }>;
+  setAllowance(childId: Id, value: { amount: Money } | null): Promise<void>;
   resolveRequest(requestId: Id, approve: boolean): Promise<void>;
+  allocations(): Promise<IncomingAllocation[]>;
+  allocateIncoming(allocationId: Id, input: AllocationInput, goalId?: Id): Promise<void>;
   createTask(childId: Id, title: string, reward: { points: number; money: Money | null }): Promise<void>;
   reviewTask(taskId: Id, accept: boolean): Promise<void>;
 
   // --- Ребёнок ---
   pay(input: PayInput): Promise<PayResult>;
+  /** Дети: кому можно перевести — родители и братья/сёстры. */
+  transferRecipients(): Promise<TransferRecipient[]>;
+  transferMoney(input: TransferInput): Promise<TransferResult>;
   createRequest(payload: AccessRequestPayload, comment?: string): Promise<{ requestId: Id }>;
   submitTask(taskId: Id): Promise<void>;
   createGoal(title: string, target: Money): Promise<{ accountId: Id }>;
-  moveToGoal(goalId: Id, amount: Money, direction: 'in' | 'out'): Promise<void>;
+  deleteGoal(goalId: Id): Promise<{ requestId: Id | null }>;
+  moveToGoal(goalId: Id, amount: Money, direction: 'in' | 'out'): Promise<{ requestId: Id | null }>;
 
   // --- Общее ---
   completeLesson(lessonId: string, answers: number[]): Promise<{ score: number; points: number }>;

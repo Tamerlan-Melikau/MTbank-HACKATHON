@@ -2,6 +2,7 @@
  * Витрина продуктов пакета. Условия — ДОПУЩЕНИЯ для прототипа, не тарифы МТБанка.
  */
 import type { AgeGroup } from './age';
+import { byn, minor, type Money } from './money';
 import type { CapabilityId } from './capabilities';
 
 export interface ProductDef {
@@ -16,6 +17,8 @@ export interface ProductDef {
   capability: CapabilityId | null;
   /** Кто оформляет: ребёнок может только запросить. */
   issuedBy: 'parent';
+  /** Возрастные группы, которые могут сами попросить продукт. По умолчанию — все forGroups. */
+  requestableBy?: AgeGroup[];
   legalNote?: string;
 }
 
@@ -24,12 +27,23 @@ export const PACKAGE = {
   title: 'Семейный пакет',
   tagline: 'Карта ребёнку, родительский контроль и уроки о деньгах',
   terms: [
-    'Обслуживание пакета: 0 BYN первые 6 месяцев, далее 3 BYN в месяц (допущение)',
-    'До 3 детских карт в пакете',
+    'Обслуживание пакета: 5 BYN в месяц (допущение)',
+    'Для многодетных семей (3 и более детей в пакете) — бесплатно',
     'Кешбэк баллами 1% в семейных категориях у партнёров (допущение)',
     'Баллы копятся отдельно у ребёнка и у родителя',
   ],
 };
+
+/** Стоимость обслуживания пакета (допущение прототипа). */
+export const PACKAGE_PRICING = { monthly: byn(5), freeMonths: 0 };
+
+export function packageDiscountPercent(children: number): number {
+  return children >= 3 ? 100 : 0;
+}
+
+export function packageMonthlyPrice(children: number): Money {
+  return minor(Math.round((PACKAGE_PRICING.monthly.minor * (100 - packageDiscountPercent(children))) / 100));
+}
 
 export const PRODUCTS: ProductDef[] = [
   {
@@ -59,30 +73,11 @@ export const PRODUCTS: ProductDef[] = [
     kind: 'savings',
     short: 'Долгосрочные накопления с процентом',
     terms: ['Ставка — по тарифам банка на дату открытия (не указываем)'],
-    forGroups: ['teen'],
+    forGroups: ['junior', 'teen'],
     capability: 'savings.deposit',
     issuedBy: 'parent',
-    legalNote: 'Самостоятельное распоряжение вкладом с 14 лет — проверить условия договора.',
-  },
-  {
-    id: 'kid-insurance',
-    title: 'Страхование ребёнка',
-    kind: 'insurance',
-    short: 'Несчастный случай, спорт, поездки',
-    terms: ['Через страхового партнёра; стоимость — допущение для экономики'],
-    forGroups: ['junior', 'teen'],
-    capability: null,
-    issuedBy: 'parent',
-  },
-  {
-    id: 'edu-subscription',
-    title: 'Подписка на обучение',
-    kind: 'subscription',
-    short: 'Курсы финграмотности и программирования у партнёров',
-    terms: ['Партнёры и цены — допущение'],
-    forGroups: ['junior', 'teen'],
-    capability: 'partners.offers',
-    issuedBy: 'parent',
+    requestableBy: ['teen'],
+    legalNote: 'До 14 лет накопительный счёт открывает родитель на имя ребёнка; с 14 лет — сам ребёнок с согласия родителя.',
   },
 ];
 

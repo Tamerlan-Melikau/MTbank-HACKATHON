@@ -4,6 +4,7 @@ import { navigate } from '@/app/router';
 import { formatMoney, levelOf } from '@/domain';
 import { BalanceHeader, Card, Page, Progress, PromoBanner, Row, Section } from '@/ui/kit';
 import { Load, TxList } from '../shared';
+import { AllocationSheet } from '../allocation/Allocation';
 
 export function ChildHome() {
   const q = useQuery(async () => {
@@ -31,7 +32,7 @@ export function ChildHome() {
               badge={unread}
               onAvatar={() => navigate('/notifications')}
               actions={[
-                { icon: 'pay', label: 'Оплатить', onClick: () => navigate('/pay') },
+                { icon: 'transfer', label: 'Перевести', onClick: () => navigate('/transfer') },
                 { icon: 'ask', label: 'Попросить', onClick: () => navigate('/ask') },
                 { icon: 'piggy', label: 'Копилка', onClick: () => navigate('/goals') },
                 { icon: 'task', label: 'Задания', onClick: () => navigate('/tasks') },
@@ -75,6 +76,7 @@ export function ChildHome() {
                     chevron
                   />
                 )}
+                {o.deposit && <Row icon="piggy" title="Накопительный счёт" subtitle={formatMoney(o.deposit.balance)} to="/deposit" chevron />}
                 <Row icon="book" title="Уроки о деньгах" subtitle="Проходи и получай баллы" to="/learn" chevron />
               </Card>
 
@@ -82,6 +84,9 @@ export function ChildHome() {
                 <TxList items={txs} role="child" empty="За последние дни операций нет" />
               </Section>
             </Page>
+            {o.settings.ageGroup === 'teen' && o.pendingAllocation && (
+              <AllocationSheet allocation={o.pendingAllocation} overview={o} onClose={() => q.reload()} />
+            )}
           </>
         );
       }}

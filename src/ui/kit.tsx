@@ -77,7 +77,10 @@ export function BalanceHeader(props: {
       <div className="ui-balance__caption t-caption">{props.caption}</div>
       <div className="ui-balance__sum">
         <button className="t-display ui-amount" onClick={() => setHidden((h) => !h)} aria-label={hidden ? 'Показать сумму' : 'Скрыть сумму'}>
-          {hidden ? `•••• ${props.amount.currency}` : text}
+          {hidden ? `•••• ${props.amount.currency}` : text}
+        </button>
+        <button className="ui-iconbtn" onClick={() => setHidden((h) => !h)} aria-label={hidden ? 'Показать сумму' : 'Скрыть сумму'} title={hidden ? 'Показать сумму' : 'Скрыть сумму'}>
+          <Icon name={hidden ? 'eye-off' : 'eye'} size={22} />
         </button>
       </div>
       <QuickActions actions={props.actions} />
@@ -110,10 +113,11 @@ const TABS: { id: TabId; label: string; icon: IconName; to: string }[] = [
   { id: 'more', label: 'Ещё', icon: 'more', to: '/more' },
 ];
 
-export function TabBar({ active, moreBadge }: { active: TabId | null; moreBadge?: number }) {
+export function TabBar({ active, moreBadge, hidden = [] }: { active: TabId | null; moreBadge?: number; hidden?: TabId[] }) {
+  const tabs = TABS.filter((t) => !hidden.includes(t.id));
   return (
-    <nav className="ui-tabbar" aria-label="Разделы">
-      {TABS.map((t) => (
+    <nav className="ui-tabbar" aria-label="Разделы" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
+      {tabs.map((t) => (
         <Link key={t.id} to={t.to} className="ui-tab t-label" aria-current={active === t.id ? 'page' : undefined}>
           <Icon name={t.icon} />
           {t.label}

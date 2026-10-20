@@ -4,7 +4,7 @@
  */
 import { useState } from 'react';
 import { api } from '@/api';
-import { useAction } from '@/app/data';
+import { useAction, useQuery } from '@/app/data';
 import { navigate } from '@/app/router';
 import {
   AGE_GROUPS,
@@ -13,7 +13,10 @@ import {
   CAPABILITY_LIST,
   capabilityAccess,
   defaultLevels,
+  formatMoney,
   PACKAGE,
+  packageDiscountPercent,
+  packageMonthlyPrice,
   productsFor,
   type CardForm,
   type ConsentType,
@@ -21,7 +24,6 @@ import {
 import { Button, Card, Checkbox, DemoNote, Field, Row, Screen, Section, Segmented } from '@/ui/kit';
 
 type Step = 'about' | 'child' | 'card' | 'consents' | 'done';
-const STEPS: Step[] = ['about', 'child', 'card', 'consents', 'done'];
 
 const CONSENTS: { type: ConsentType; text: string; required: boolean }[] = [
   { type: 'package-offer', text: 'Принимаю условия семейного пакета', required: true },
@@ -35,6 +37,10 @@ export function Enroll() {
   const [cardForm, setCardForm] = useState<CardForm>('digital');
   const [consents, setConsents] = useState<ConsentType[]>([]);
   const [childId, setChildId] = useState<string | null>(null);
+  const familyQ = useQuery(() => api.familyView(), []);
+  const childrenAfter = (familyQ.data?.children.length ?? 0) + 1;
+  const discount = packageDiscountPercent(childrenAfter);
+  const monthly = packageMonthlyPrice(childrenAfter);
   const now = new Date();
   const group = child.birthDate ? ageGroupOf(child.birthDate, now) : null;
   const age = child.birthDate ? ageAt(child.birthDate, now) : null;
@@ -45,11 +51,15 @@ export function Enroll() {
     setStep('done');
   });
 
-  const idx = STEPS.indexOf(step);
-  const title = step === 'done' ? 'Готово' : `Семейный пакет · ${idx + 1} из 4`;
+  const title = step === 'done' ? 'Готово' : 'Семейный пакет';
 
   return (
     <Screen title={title} back={step === 'done' ? false : '/'}>
+      {step !== 'done' && (
+        <p className="t-caption muted" style={{ margin: 0 }}>
+          Всего 4 шага
+        </p>
+      )}
       {step === 'about' && (
         <>
           <Card>
@@ -61,6 +71,13 @@ export function Enroll() {
                   <li key={t}>{t}</li>
                 ))}
               </ul>
+              <div className="ui-between">
+                <span className="t-caption muted">Детей в пакете: {childrenAfter}</span>
+                <span className="t-heading">{monthly.minor === 0 ? 'Бесплатно' : `${formatMoney(monthly)} / мес`}</span>
+              </div>
+              <span className={discount === 100 ? 't-caption positive' : 't-caption muted'}>
+                {discount === 100 ? 'Многодетная семья — обслуживание бесплатно' : 'Для многодетных семей (3+ детей) — бесплатно'}
+              </span>
             </div>
           </Card>
           <DemoNote>Условия — допущения прототипа, не тарифы банка.</DemoNote>
@@ -139,14 +156,14 @@ export function Enroll() {
         <>
           <Card>
             <div className="ui-stack">
-              <div className="t-heading">Карта для {child.firstName} выпущена</div>
+              <div className="t-heading">Карта для ребёнка «{child.firstName}» выпущена</div>
               <div className="t-body muted">Осталось открыть ребёнку вход в Moby и проверить ограничения.</div>
             </div>
           </Card>
           <Card flush>
             <Row icon="key" title="Открыть доступ в Moby" subtitle="Выдать код для входа" to={`/child/${childId}`} chevron />
             <Row icon="shield" title="Проверить права" subtitle="Платежи, накопления, категории" to={`/child/${childId}/permissions`} chevron />
-            <Row icon="topup" title="Настроить карманные" to={`/child/${childId}/topup`} chevron />
+            <Row icon="topup" title="Настроить карманные" to={`/child/${childId}/allowance`} chevron />
           </Card>
           <Button block variant="secondary" onClick={() => navigate('/', { replace: true })}>
             На главную

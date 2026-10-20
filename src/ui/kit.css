@@ -478,3 +478,30 @@ select.ui-input { appearance: none; background-image: none; }
   .ui-action__label { letter-spacing: -0.02em; }
   .ui-row { padding-left: var(--space-3); padding-right: var(--space-3); }
 }
+
+/* ---------- Нижнее модальное окно ---------- */
+.ui-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.ui-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 31, 158, 0.36);
+  backdrop-filter: blur(2px);
+}
+.ui-modal__panel {
+  position: relative;
+  width: min(100%, 480px);
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  background: var(--surface-100);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: var(--space-5) var(--space-4) calc(var(--space-5) + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 32px rgba(11, 31, 158, 0.18);
+}

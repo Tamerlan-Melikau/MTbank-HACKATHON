@@ -31,7 +31,9 @@ export function Permissions({ id }: { id: string }) {
   return (
     <Load q={q} skeleton={5}>
       {(o) => {
-        const groups = (['payments', 'savings', 'extras'] as const).map((g) => ({ g, items: CAPABILITY_LIST.filter((c) => c.group === g) }));
+        const groups = (['payments', 'savings', 'extras'] as const)
+          .map((g) => ({ g, items: CAPABILITY_LIST.filter((c) => c.group === g && isAvailable(o.settings.ageGroup, c)) }))
+          .filter(({ items }) => items.length > 0);
         return (
           <Screen title="Права" back={`/child/${id}`}>
             <p className="t-body muted" style={{ margin: 0 }}>
@@ -72,24 +74,26 @@ export function Permissions({ id }: { id: string }) {
   );
 }
 
+function isAvailable(group: ChildSettings['ageGroup'], def: CapabilityDef) {
+  const ceiling = def.rules[group].ceiling;
+  return ceiling !== 'none' && ceiling !== 'off';
+}
+
 function CapabilityControl({ def, settings, onChange }: { def: CapabilityDef; settings: ChildSettings; onChange: (l: Level) => void }) {
   const allowed = allowedLevels(settings.ageGroup, def.id);
-  const notForAge = def.rules[settings.ageGroup].ceiling === 'none' || def.rules[settings.ageGroup].ceiling === 'off';
   return (
     <Card>
       <div className="ui-stack">
         <div>
           <div className="t-body" style={{ fontWeight: 600 }}>{def.title}</div>
-          <div className="t-caption muted">{notForAge ? 'Недоступно в этом возрасте' : def.parentHint}</div>
+          <div className="t-caption muted">{def.parentHint}</div>
         </div>
-        {!notForAge && (
-          <Segmented
-            label={def.title}
-            value={settings.levels[def.id]}
-            onChange={onChange}
-            options={(['off', 'approval', 'on'] as Level[]).map((l) => ({ value: l, label: LEVEL_LABEL[l], disabled: !allowed.includes(l) }))}
-          />
-        )}
+        <Segmented
+          label={def.title}
+          value={settings.levels[def.id]}
+          onChange={onChange}
+          options={(['off', 'approval', 'on'] as Level[]).map((l) => ({ value: l, label: LEVEL_LABEL[l], disabled: !allowed.includes(l) }))}
+        />
       </div>
     </Card>
   );

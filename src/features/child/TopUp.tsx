@@ -1,12 +1,13 @@
-/** Пополнение ребёнка и карманные деньги. Без childId — выбор ребёнка. */
+/** Разовое пополнение ребёнка. Регулярные карманные настраиваются отдельно. */
 import { useState } from 'react';
 import { api } from '@/api';
 import { useAction, useQuery } from '@/app/data';
 import { goBack } from '@/app/router';
 import { toast } from '@/app/toast';
-import { formatMoney, parseMoney, byn, type Allowance } from '@/domain';
-import { Button, Card, Chip, Field, Row, Screen, Section, Segmented, Amount } from '@/ui/kit';
+import { formatMoney, parseMoney, byn, type IncomingAllocation } from '@/domain';
+import { Button, Card, Chip, Field, Row, Screen, Section, Amount, Select } from '@/ui/kit';
 import { Load } from '../shared';
+import { AllocationSheet } from '../allocation/Allocation';
 
 export function TopUpPicker() {
   const q = useQuery(() => api.familyView(), []);
@@ -30,34 +31,34 @@ const QUICK = [5, 10, 20, 50];
 export function TopUp({ id }: { id: string }) {
   const q = useQuery(() => api.childOverview(id), [id]);
   const [amount, setAmount] = useState('');
-  const [period, setPeriod] = useState<Allowance['period']>('weekly');
-  const [allowance, setAllowance] = useState('');
+  const [target, setTarget] = useState('current');
+  const [allocation, setAllocation] = useState<IncomingAllocation | null>(null);
 
   const [topUp, busy] = useAction(async () => {
     const m = parseMoney(amount);
     if (!m || m.minor <= 0) throw new Error('Введите сумму');
-    await api.topUpChild(id, m);
+    const r = await api.topUpChild(id, m, target === 'current' ? undefined : target);
     toast(`Отправлено ${formatMoney(m)}`);
-    goBack(`/child/${id}`);
-  });
-  const [saveAllowance, saving] = useAction(async (off: boolean) => {
-    if (off) {
-      await api.setAllowance(id, null);
-      toast('Карманные деньги выключены');
-      return;
+    if (r.allocation && q.data?.settings.ageGroup === 'junior') setAllocation(r.allocation);
+    else {
+      if (target === 'current') toast(`${q.data?.member.firstName ?? 'Подросток'} сам решит, сколько отложить`);
+      goBack(`/child/${id}`);
     }
-    const m = parseMoney(allowance);
-    if (!m || m.minor <= 0) throw new Error('Введите сумму карманных');
-    await api.setAllowance(id, { amount: m, period });
-    toast('Карманные деньги настроены');
-    setAllowance('');
   });
 
   return (
     <Load q={q}>
-      {(o) => (
+      {(o) => {
+        const accounts = [
+          { value: 'current', label: `Основной счёт · ${formatMoney(o.account.balance)}` },
+          ...(o.deposit ? [{ value: o.deposit.id, label: `Накопительный счёт · ${formatMoney(o.deposit.balance)}` }] : []),
+          ...o.goals.map((g) => ({ value: g.id, label: `${g.title} · ${formatMoney(g.balance)}` })),
+        ];
+        return (
+        <>
         <Screen title={`Пополнить: ${o.member.firstName}`} back={`/child/${id}`}>
           <Section>
+            <Select label="Куда зачислить" value={target} options={accounts} onChange={setTarget} />
             <Field label="Сумма, BYN" value={amount} onChange={setAmount} inputMode="decimal" placeholder="0,00" />
             <div className="ui-chips">
               {QUICK.map((v) => (
@@ -70,34 +71,20 @@ export function TopUp({ id }: { id: string }) {
               Пополнить
             </Button>
           </Section>
-
-          <Section title="Карманные деньги">
-            <p className="t-body muted" style={{ margin: 0 }}>
-              {o.allowance
-                ? `Сейчас: ${formatMoney(o.allowance.amount)} ${o.allowance.period === 'weekly' ? 'каждую неделю' : 'каждый месяц'}. Следующий перевод ${new Date(o.allowance.nextRunAt).toLocaleDateString('ru-RU')}.`
-                : 'Регулярный перевод со своего счёта. Ребёнок учится планировать.'}
-            </p>
-            <Segmented
-              label="Период"
-              value={period}
-              onChange={setPeriod}
-              options={[
-                { value: 'weekly', label: 'Раз в неделю' },
-                { value: 'monthly', label: 'Раз в месяц' },
-              ]}
-            />
-            <Field label="Сумма, BYN" value={allowance} onChange={setAllowance} inputMode="decimal" placeholder={o.allowance ? formatMoney(o.allowance.amount) : '0,00'} />
-            <Button block variant="secondary" onClick={() => saveAllowance(false)} disabled={saving}>
-              {o.allowance ? 'Изменить' : 'Настроить'}
-            </Button>
-            {o.allowance && (
-              <Button block variant="ghost" onClick={() => saveAllowance(true)} disabled={saving}>
-                Выключить
-              </Button>
-            )}
-          </Section>
         </Screen>
-      )}
+        {allocation && (
+          <AllocationSheet
+            allocation={allocation}
+            overview={o}
+            onClose={() => {
+              setAllocation(null);
+              goBack(`/child/${id}`);
+            }}
+          />
+        )}
+        </>
+        );
+      }}
     </Load>
   );
 }

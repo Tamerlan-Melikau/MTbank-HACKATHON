@@ -1,4 +1,4 @@
-/** Уроки финграмотности: у ребёнка — по возрасту, у родителя — свои. Баллы у каждого отдельно. */
+/** Уроки финграмотности для ребёнка: по возрасту, с баллами. */
 import { useState } from 'react';
 import { api } from '@/api';
 import { useAction, useQuery } from '@/app/data';
@@ -7,9 +7,8 @@ import { lessonsFor, LESSONS, type AgeGroup } from '@/domain';
 import { Button, Card, Empty, Row, Screen, Section } from '@/ui/kit';
 import { Load } from '../shared';
 
-async function myGroup(): Promise<{ memberId: string; group: AgeGroup | 'parents' }> {
+async function myGroup(): Promise<{ memberId: string; group: AgeGroup }> {
   const me = await api.me();
-  if (me.role === 'parent') return { memberId: me.id, group: 'parents' };
   const o = await api.childOverview(me.id);
   return { memberId: me.id, group: o.settings.ageGroup };
 }
@@ -23,10 +22,10 @@ export function Learn() {
   return (
     <Screen title="Уроки" back="/">
       <Load q={q}>
-        {({ lessons, done, group }) => (
+        {({ lessons, done }) => (
           <>
             <p className="t-body muted" style={{ margin: 0 }}>
-              {group === 'parents' ? 'Короткие советы, как говорить с ребёнком о деньгах.' : 'Проходи уроки, отвечай на вопросы и получай баллы.'}
+              Проходи уроки, отвечай на вопросы и получай баллы.
             </p>
             <Card flush>
               {lessons.map((l) => (

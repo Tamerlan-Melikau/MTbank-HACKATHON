@@ -7,7 +7,7 @@ import type { AgeGroup } from './age';
 export interface Lesson {
   id: string;
   title: string;
-  forGroups: AgeGroup[] | 'parents';
+  forGroups: AgeGroup[];
   minutes: number;
   points: number;
   body: string;
@@ -61,17 +61,6 @@ export const LESSONS: Lesson[] = [
       { question: 'Что такое процент по вкладу?', options: ['Плата банку', 'Плата тебе за хранение денег в банке', 'Штраф'], correct: 1 },
     ],
   },
-  {
-    id: 'parents-talk',
-    title: 'Как говорить с ребёнком о деньгах',
-    forGroups: 'parents',
-    minutes: 5,
-    points: 20,
-    body: 'Давайте карманные деньги регулярно и в одну и ту же сумму. Обсуждайте покупки без оценок. Пусть ребёнок ошибётся на малой сумме — это дешёвый урок.',
-    quiz: [
-      { question: 'Как лучше выдавать карманные деньги?', options: ['Регулярно и предсказуемо', 'Только за оценки', 'По настроению'], correct: 0 },
-    ],
-  },
 ];
 
 /** Награды (допущения). */
@@ -105,6 +94,6 @@ export function levelOf(points: number): LevelInfo {
   return { level: idx + 1, title: cur.title, from: cur.from, to: next ? next.from : null };
 }
 
-export function lessonsFor(group: AgeGroup | 'parents'): Lesson[] {
-  return LESSONS.filter((l) => (group === 'parents' ? l.forGroups === 'parents' : l.forGroups !== 'parents' && l.forGroups.includes(group)));
+export function lessonsFor(group: AgeGroup): Lesson[] {
+  return LESSONS.filter((l) => l.forGroups.includes(group));
 }

@@ -80,7 +80,7 @@ export function authorizePayment(op: PaymentOp, ctx: PaymentContext): PaymentDec
 
   // 6. Лимиты
   const { limits } = settings;
-  if (limits.perTransaction && gt(op.amount, limits.perTransaction)) {
+  if (settings.ageGroup !== 'junior' && limits.perTransaction && gt(op.amount, limits.perTransaction)) {
     return { outcome: 'decline', code: 'LIMIT_PER_TX', requestable: true };
   }
   if (limits.daily && gt(add(ctx.spentToday, op.amount), limits.daily)) {

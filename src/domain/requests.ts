@@ -7,7 +7,7 @@ import type { AccessRequestPayload, Limits } from './types';
 /** Лимиты по умолчанию при выпуске пакета (допущения). */
 export function presetLimits(group: AgeGroup): Limits {
   return group === 'junior'
-    ? { perTransaction: byn(20), daily: byn(30), monthly: byn(100), approvalFrom: byn(15) }
+    ? { perTransaction: null, daily: byn(30), monthly: byn(100), approvalFrom: byn(15) }
     : { perTransaction: byn(100), daily: byn(150), monthly: byn(500), approvalFrom: null };
 }
 
@@ -26,5 +26,17 @@ export function describePayload(p: AccessRequestPayload): string {
       return PRODUCTS.find((x) => x.id === p.productId)?.title ?? 'Продукт';
     case 'purchase':
       return 'Подтверждение покупки';
+    case 'transfer':
+      return `Перевод: ${formatMoney(p.amount)} — ${p.recipient}`;
+    case 'goal_withdraw':
+      return `Вывод из копилки: ${formatMoney(p.amount)}`;
+    case 'goal_close':
+      return 'Закрыть копилку';
+    case 'deposit_close':
+      return 'Закрыть накопительный счёт';
+    case 'deposit_withdraw':
+      return `С накопительного счёта: ${formatMoney(p.amount)}`;
+    case 'deposit_transfer':
+      return `Перевод с накопительного счёта: ${formatMoney(p.amount)} — ${p.recipient}`;
   }
 }

@@ -4,19 +4,21 @@ import { api, type ChildOverview } from '@/api';
 import { useAction, useQuery } from '@/app/data';
 import { navigate } from '@/app/router';
 import { toast } from '@/app/toast';
-import { AGE_GROUPS, CAPABILITY_LIST, formatMoney, levelOf, LESSONS } from '@/domain';
+import { AGE_GROUPS, CAPABILITY_LIST, formatMoney, levelOf } from '@/domain';
 import { Amount, Button, ButtonRow, Card, Locked, QuickActions, Row, Screen, Section, Switch } from '@/ui/kit';
 import { Load, TxList } from '../shared';
+import { AllocationGate } from '../allocation/Allocation';
 
 export function ChildManage({ id }: { id: string }) {
   const q = useQuery(async () => {
-    const [o, txs, lessons] = await Promise.all([api.childOverview(id), api.transactions(id, { limit: 5 }), api.lessonProgress(id)]);
-    return { o, txs, lessons };
+    const [o, txs] = await Promise.all([api.childOverview(id), api.transactions(id, { limit: 5 })]);
+    return { o, txs };
   }, [id]);
 
   return (
     <Load q={q} skeleton={4}>
-      {({ o, txs, lessons }) => (
+      {({ o, txs }) => (
+        <>
         <Screen title={o.member.firstName} back="/">
           <Card>
             <div className="ui-stack ui-stack--tight">
@@ -33,7 +35,7 @@ export function ChildManage({ id }: { id: string }) {
 
           <QuickActions
             actions={[
-              { icon: 'topup', label: 'Пополнить', onClick: () => navigate(`/child/${id}/topup`) },
+              { icon: 'topup-family', label: 'Пополнить', onClick: () => navigate(`/child/${id}/topup`) },
               { icon: 'limit', label: 'Лимиты', onClick: () => navigate(`/child/${id}/limits`) },
               { icon: 'shield', label: 'Права', onClick: () => navigate(`/child/${id}/permissions`) },
               { icon: 'task', label: 'Задания', onClick: () => navigate(`/tasks?child=${id}`) },
@@ -48,14 +50,15 @@ export function ChildManage({ id }: { id: string }) {
 
           <MobyAccessBlock o={o} />
           <CardBlock o={o} />
+          <DepositBlock o={o} />
 
           <Section title="Настройки">
             <Card flush>
               <Row
                 icon="topup"
                 title="Карманные деньги"
-                subtitle={o.allowance ? `${formatMoney(o.allowance.amount)} ${o.allowance.period === 'weekly' ? 'в неделю' : 'в месяц'}` : 'Не настроены'}
-                to={`/child/${id}/topup`}
+                subtitle={o.allowance ? `${formatMoney(o.allowance.amount)} 1-го числа` : 'Не настроены'}
+                to={`/child/${id}/allowance`}
                 chevron
               />
               <Row
@@ -72,7 +75,6 @@ export function ChildManage({ id }: { id: string }) {
           <Section title="Прогресс">
             <Card flush>
               <Row icon="star" iconTone="accent" title={`Уровень ${levelOf(o.points).level}: ${levelOf(o.points).title}`} subtitle={`${o.points} баллов`} />
-              <Row icon="book" title="Уроки" subtitle={`Пройдено ${lessons.length} из ${LESSONS.filter((l) => l.forGroups !== 'parents' && l.forGroups.includes(o.settings.ageGroup)).length}`} />
               {o.goals.map((g) => (
                 <Row key={g.id} icon="piggy" title={g.title} subtitle={g.goal ? `${formatMoney(g.balance)} из ${formatMoney(g.goal.target)}` : undefined} end={g.goal?.reachedAt ? <span className="t-label positive">Цель есть</span> : undefined} />
               ))}
@@ -82,15 +84,72 @@ export function ChildManage({ id }: { id: string }) {
           <Section title="Операции" end={<a className="t-label" style={{ color: 'var(--brand)', padding: '12px 0' }} href={`#/child/${id}/history`}>Все</a>}>
             <TxList items={txs} role="parent" />
           </Section>
+
+          <DeleteChildBlock id={id} name={o.member.firstName} />
         </Screen>
+        {o.settings.ageGroup === 'junior' && o.pendingAllocation && (
+          <AllocationGate allocation={o.pendingAllocation} onClose={() => q.reload()} />
+        )}
+        </>
       )}
     </Load>
+  );
+}
+
+function DepositBlock({ o }: { o: ChildOverview }) {
+  const [open, busy] = useAction(async () => {
+    await api.openDeposit(o.member.id);
+    toast('Накопительный счёт открыт');
+  });
+  return (
+    <Section title="Накопительный счёт">
+      {o.deposit ? (
+        <Card flush>
+          <Row icon="piggy" title={o.deposit.title} subtitle="Счёт на имя ребёнка" end={<Amount value={o.deposit.balance} sign="auto" />} to={`/child/${o.member.id}/deposit`} chevron />
+        </Card>
+      ) : (
+        <Card>
+          <div className="ui-stack">
+            {o.settings.ageGroup !== 'junior' && (
+              <div className="t-body muted">Можно открыть счёт сейчас или одобрить запрос подростка в разделе «Запросы».</div>
+            )}
+            <Button block variant="secondary" onClick={() => open()} disabled={busy}>
+              Создать накопительный счёт
+            </Button>
+          </div>
+        </Card>
+      )}
+    </Section>
   );
 }
 
 function NotifySwitch({ o }: { o: ChildOverview }) {
   const [set] = useAction((v: boolean) => api.setNotifyEveryOperation(o.member.id, v));
   return <Switch checked={o.settings.notifyParentOnEveryOperation} onChange={set} label="Уведомлять о каждой операции" />;
+}
+
+function DeleteChildBlock({ id, name }: { id: string; name: string }) {
+  const [remove, busy] = useAction(async () => {
+    const ok = window.confirm(
+      `Удалить профиль ${name}? Карта, счёт, история операций, задания и прогресс будут удалены без возможности восстановления.`,
+    );
+    if (!ok) return;
+    await api.deleteChild(id);
+    toast('Профиль ребёнка удалён');
+    navigate('/', { replace: true });
+  });
+  return (
+    <Section title="Удаление профиля">
+      <Card>
+        <div className="ui-stack">
+          <div className="t-body muted">Профиль ребёнка, его карта, счёт, история и прогресс будут удалены навсегда.</div>
+          <Button block variant="danger" onClick={() => remove()} disabled={busy}>
+            {busy ? 'Удаляем…' : 'Удалить ребёнка'}
+          </Button>
+        </div>
+      </Card>
+    </Section>
+  );
 }
 
 function MobyAccessBlock({ o }: { o: ChildOverview }) {

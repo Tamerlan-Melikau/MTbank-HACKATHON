@@ -44,8 +44,14 @@ export function App() {
 }
 
 function Tabs({ active }: { active: Parameters<typeof TabBar>[0]['active'] }) {
+  const session = useSession();
   const q = useQuery(() => api.notifications(), []);
-  return <TabBar active={active} moreBadge={q.data?.filter((n) => !n.read).length} />;
+  const child = useQuery(
+    () => (session?.role === 'child' ? api.childOverview(session.memberId) : Promise.resolve(null)),
+    [session?.role, session?.memberId],
+  );
+  const isJunior = session?.role === 'child' && (child.data === undefined || child.data?.settings.ageGroup === 'junior');
+  return <TabBar active={active} moreBadge={q.data?.filter((n) => !n.read).length} hidden={isJunior ? ['products', 'chat'] : []} />;
 }
 
 function findRoute(path: string, role: 'parent' | 'child') {

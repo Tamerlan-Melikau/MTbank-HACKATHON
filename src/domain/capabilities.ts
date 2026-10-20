@@ -74,7 +74,7 @@ export const CAPABILITIES: Record<CapabilityId, CapabilityDef> = {
     parentHint: 'Переводы по номеру телефона',
     childHint: 'Переводить друзьям',
     group: 'payments',
-    rules: { junior: { ceiling: 'approval', default: 'off' }, teen: { ceiling: 'on', default: 'approval' } },
+    rules: { junior: { ceiling: 'approval', default: 'approval' }, teen: { ceiling: 'on', default: 'on' } },
   },
   'savings.goal': {
     id: 'savings.goal',

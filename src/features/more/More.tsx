@@ -12,8 +12,11 @@ export function More() {
   const [theme, setTheme] = useTheme();
   const q = useQuery(async () => {
     const me = await api.me();
-    const [n, pts] = await Promise.all([api.notifications(), api.points(me.id)]);
-    return { me, unread: n.filter((x) => !x.read).length, points: pts.balance };
+    const [n, o] = await Promise.all([
+      api.notifications(),
+      me.role === 'child' ? api.childOverview(me.id) : Promise.resolve(null),
+    ]);
+    return { me, unread: n.filter((x) => !x.read).length, junior: o?.settings.ageGroup === 'junior' };
   }, []);
   const [signOut] = useAction(() => api.signOut());
   const isParent = session?.role === 'parent';
@@ -27,23 +30,22 @@ export function More() {
             <Card flush>
               <Row icon="user" title={`${d.me.firstName} ${d.me.lastName}`} subtitle={isParent ? 'Родитель' : 'Ребёнок'} />
               <Row icon="bell" title="Уведомления" end={d.unread ? <span className="t-label">{d.unread}</span> : undefined} to="/notifications" chevron />
-              <Row icon="star" iconTone="accent" title="Баллы" subtitle={`${d.points} · ${levelOf(d.points).title}`} to="/points" chevron />
             </Card>
           )}
         </Load>
         <Section title="Разделы">
           <Card flush>
-            <Row icon="ask" title="Запросы" to="/requests" chevron />
-            <Row icon="task" title="Задания" to="/tasks" chevron />
-            <Row icon="book" title="Уроки" to="/learn" chevron />
-            <Row icon="history" title="Операции" to="/history" chevron />
+            {!isParent && <Row icon="ask" title="Запросы" to="/requests" chevron />}
+            {!isParent && <Row icon="history" title="Операции" to="/history" chevron />}
             {isParent && <Row icon="family" title="Добавить ребёнка" to="/enroll" chevron />}
           </Card>
         </Section>
         <Section title="Безопасность">
           <Card flush>
             <Row icon="shield" title="Если карта потеряна" subtitle={isParent ? 'Откройте ребёнка → «Карта утеряна»: старая закроется, новая цифровая заработает сразу' : 'Сразу скажи родителю — он закроет карту в приложении'} />
-            <Row icon="alert" title="Спорная операция" subtitle="Напишите в чат банка: оспорить операцию можно в течение срока по правилам платёжной системы (уточнить)" to="/chat" chevron />
+            {!q.data?.junior && (
+              <Row icon="alert" title="Спорная операция" subtitle="Напишите в чат банка: оспорить операцию можно в течение срока по правилам платёжной системы (уточнить)" to="/chat" chevron />
+            )}
           </Card>
         </Section>
         <Section title="Тема">
@@ -120,7 +122,9 @@ export function Points() {
                     Уровень {lvl.level}: {lvl.title}
                     {lvl.to ? ` · до следующего ${lvl.to - p.balance}` : ''}
                   </span>
-                  <span className="t-caption muted">Баллы копятся отдельно у каждого в семье. Обмен на награды партнёров — в разработке.</span>
+                  <span className="t-caption muted">
+                    Баллы — не деньги и не влияют на баланс. Это прогресс за уроки и задания: уровни показывают, чему ребёнок уже научился. Обмен на награды партнёров — в разработке.
+                  </span>
                 </div>
               </Card>
               <Card flush>

@@ -5,7 +5,7 @@ import { useAction, useQuery } from '@/app/data';
 import { goBack } from '@/app/router';
 import { toast } from '@/app/toast';
 import { CAPABILITY_LIST, parseMoney } from '@/domain';
-import { Button, Card, Field, Locked, Row, Screen, Section } from '@/ui/kit';
+import { Button, Field, Locked, Screen, Section } from '@/ui/kit';
 import { Load } from '../shared';
 
 export function Ask() {
@@ -31,12 +31,11 @@ export function Ask() {
         {(o) => {
           const pendingCaps = new Set(o.pendingRequests.flatMap((r) => (r.payload.type === 'capability' ? [r.payload.capabilityId] : [])));
           const requestable = CAPABILITY_LIST.filter((c) => {
+            if (c.id === 'card.cash') return false;
             const a = o.access[c.id];
-            return a.kind === 'denied' && a.canRequest;
-          });
-          const byAge = CAPABILITY_LIST.filter((c) => {
-            const a = o.access[c.id];
-            return a.kind === 'denied' && a.reason === 'age';
+            const hiddenForJunior =
+              o.settings.ageGroup === 'junior' && (c.id === 'transfer.p2p' || c.id === 'partners.offers' || c.id === 'savings.deposit');
+            return !hiddenForJunior && a.kind === 'denied' && a.canRequest;
           });
           return (
             <>
@@ -63,16 +62,6 @@ export function Ask() {
                       />
                     );
                   })}
-                </Section>
-              )}
-
-              {byAge.length > 0 && (
-                <Section title="Откроется позже">
-                  <Card flush>
-                    {byAge.map((c) => (
-                      <Row key={c.id} icon="lock" iconTone="muted" title={c.title} subtitle="Станет доступно, когда подрастёшь" />
-                    ))}
-                  </Card>
                 </Section>
               )}
             </>

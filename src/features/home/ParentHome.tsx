@@ -4,6 +4,7 @@ import { navigate } from '@/app/router';
 import { AGE_GROUPS } from '@/domain';
 import { BalanceHeader, Card, Page, PromoBanner, Row, Section, Amount } from '@/ui/kit';
 import { Load, TxList } from '../shared';
+import { AllocationGate } from '../allocation/Allocation';
 
 const MOBY_STATUS = {
   none: 'Нет доступа в Moby',
@@ -16,15 +17,16 @@ const MOBY_STATUS = {
 export function ParentHome() {
   const q = useQuery(async () => {
     const me = await api.me();
-    const [family, accounts, cards, txs, requests, notifications] = await Promise.all([
+    const [family, accounts, cards, txs, requests, notifications, allocations] = await Promise.all([
       api.familyView(),
       api.accounts(me.id),
       api.cards(me.id),
       api.transactions(me.id, { limit: 3 }),
       api.requests({ status: 'pending' }),
       api.notifications(),
+      api.allocations(),
     ]);
-    return { me, family, account: accounts.find((a) => a.kind === 'current')!, card: cards[0] ?? null, txs, requests, unread: notifications.filter((n) => !n.read).length };
+    return { me, family, account: accounts.find((a) => a.kind === 'current')!, card: cards[0] ?? null, txs, requests, allocation: allocations[0] ?? null, unread: notifications.filter((n) => !n.read).length };
   }, []);
 
   return (
@@ -39,10 +41,10 @@ export function ParentHome() {
               badge={d.unread}
               onAvatar={() => navigate('/notifications')}
               actions={[
-                { icon: 'topup', label: 'Пополнить', onClick: () => navigate('/topup') },
+                { icon: 'topup-family', label: 'Пополнить', onClick: () => navigate('/topup') },
                 { icon: 'task', label: 'Задания', onClick: () => navigate('/tasks') },
                 { icon: 'ask', label: 'Запросы', onClick: () => navigate('/requests') },
-                { icon: 'book', label: 'Уроки', onClick: () => navigate('/learn') },
+                { icon: 'history', label: 'История', onClick: () => navigate('/history') },
               ]}
             />
             <Page>
@@ -77,6 +79,7 @@ export function ParentHome() {
                 <TxList items={d.txs} role="parent" empty="За последние дни операций нет" />
               </Section>
             </Page>
+            {d.allocation && <AllocationGate allocation={d.allocation} onClose={() => q.reload()} />}
           </>
         );
       }}
