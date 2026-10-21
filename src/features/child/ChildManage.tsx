@@ -4,7 +4,7 @@ import { api, type ChildOverview } from '@/api';
 import { useAction, useQuery } from '@/app/data';
 import { navigate } from '@/app/router';
 import { toast } from '@/app/toast';
-import { AGE_GROUPS, CAPABILITY_LIST, formatMoney, levelOf } from '@/domain';
+import { AGE_GROUPS, CAPABILITY_LIST, formatMoney, goalsReserved, levelOf, savingsAvailable, savingsTotal } from '@/domain';
 import { Amount, Button, ButtonRow, Card, Locked, QuickActions, Row, Screen, Section, Switch } from '@/ui/kit';
 import { Load, TxList } from '../shared';
 import { AllocationGate } from '../allocation/Allocation';
@@ -52,6 +52,34 @@ export function ChildManage({ id }: { id: string }) {
           <CardBlock o={o} />
           <DepositBlock o={o} />
 
+          {o.settings.ageGroup === 'junior' && (
+            <Section title="Копилки" end={<a className="t-label" style={{ color: 'var(--brand)', padding: '12px 0' }} href={`#/child/${id}/goals`}>Управлять</a>}>
+              <Card flush>
+                {o.goals.length === 0 ? (
+                  <Row
+                    icon="piggy"
+                    title="Копилок пока нет"
+                    subtitle={o.deposit ? 'Создать цель и откладывать с накопительного счёта' : 'Сначала откройте накопительный счёт'}
+                    to={`/child/${id}/goals`}
+                    chevron
+                  />
+                ) : (
+                  o.goals.map((g) => (
+                    <Row
+                      key={g.id}
+                      icon="piggy"
+                      title={g.title}
+                      subtitle={`${formatMoney(g.balance)} из ${formatMoney(g.target)}`}
+                      end={g.reachedAt ? <span className="t-label positive">Цель есть</span> : undefined}
+                      to={`/child/${id}/goals`}
+                      chevron
+                    />
+                  ))
+                )}
+              </Card>
+            </Section>
+          )}
+
           <Section title="Настройки">
             <Card flush>
               <Row
@@ -75,9 +103,10 @@ export function ChildManage({ id }: { id: string }) {
           <Section title="Прогресс">
             <Card flush>
               <Row icon="star" iconTone="accent" title={`Уровень ${levelOf(o.points).level}: ${levelOf(o.points).title}`} subtitle={`${o.points} баллов`} />
-              {o.goals.map((g) => (
-                <Row key={g.id} icon="piggy" title={g.title} subtitle={g.goal ? `${formatMoney(g.balance)} из ${formatMoney(g.goal.target)}` : undefined} end={g.goal?.reachedAt ? <span className="t-label positive">Цель есть</span> : undefined} />
-              ))}
+              {o.settings.ageGroup !== 'junior' &&
+                o.goals.map((g) => (
+                  <Row key={g.id} icon="piggy" title={g.title} subtitle={`${formatMoney(g.balance)} из ${formatMoney(g.target)}`} end={g.reachedAt ? <span className="t-label positive">Цель есть</span> : undefined} />
+                ))}
             </Card>
           </Section>
 
@@ -105,7 +134,18 @@ function DepositBlock({ o }: { o: ChildOverview }) {
     <Section title="Накопительный счёт">
       {o.deposit ? (
         <Card flush>
-          <Row icon="piggy" title={o.deposit.title} subtitle="Счёт на имя ребёнка" end={<Amount value={o.deposit.balance} sign="auto" />} to={`/child/${o.member.id}/deposit`} chevron />
+          <Row
+            icon="piggy"
+            title={o.deposit.title}
+            subtitle={
+              o.goals.length > 0
+                ? `Свободно ${formatMoney(savingsAvailable(o.deposit, o.goals))} · в копилках ${formatMoney(goalsReserved(o.goals))}`
+                : 'Счёт на имя ребёнка'
+            }
+            end={<Amount value={savingsTotal(o.deposit)} sign="auto" />}
+            to={`/child/${o.member.id}/deposit`}
+            chevron
+          />
         </Card>
       ) : (
         <Card>
@@ -221,21 +261,45 @@ function MobyAccessBlock({ o }: { o: ChildOverview }) {
 
 function CardBlock({ o }: { o: ChildOverview }) {
   const card = o.card;
+  const accountBlocked = o.account.status === 'blocked';
   const [setBlocked, busy] = useAction((v: boolean) => api.setCardBlocked(card!.id, v));
+  const [setAccountBlocked] = useAction((v: boolean) => api.setAccountBlocked(o.account.id, v));
   const [lost, losing] = useAction(async () => {
     if (!window.confirm('Карта будет закрыта навсегда, взамен сразу выпустим цифровую. Продолжить?')) return;
     await api.reportCardLost(card!.id);
-    toast('Старая карта закрыта, новая цифровая уже работает');
+    toast(accountBlocked ? 'Старая карта закрыта, новая выпущена, но счёт заблокирован' : 'Старая карта закрыта, новая цифровая уже работает');
   });
   if (!card) return null;
   return (
-    <Section title="Карта">
+    <Section title="Карта и счёт">
       <Card flush>
         <Row
           icon="card"
           title={`${card.form === 'physical' ? 'Пластиковая' : 'Цифровая'} •••• ${card.last4}`}
-          subtitle={card.status === 'active' ? 'Работает' : card.status === 'blocked' ? 'Заблокирована вами' : 'Утеряна'}
-          end={<Switch checked={card.status === 'active'} onChange={(on) => setBlocked(!on)} label="Карта активна" />}
+          subtitle={
+            card.status === 'lost'
+              ? 'Утеряна'
+              : accountBlocked
+                ? 'Заблокирована вместе со счётом'
+                : card.status === 'blocked'
+                  ? 'Заблокирована вами: платежи картой закрыты, переводы работают'
+                  : 'Платежи картой работают'
+          }
+          end={
+            accountBlocked
+              ? <span className="t-label muted">Со счётом</span>
+              : <Switch checked={card.status === 'active'} onChange={(on) => setBlocked(!on)} label="Карта активна" />
+          }
+        />
+        <Row
+          icon={accountBlocked ? 'lock' : 'pay'}
+          title="Счёт"
+          subtitle={
+            accountBlocked
+              ? 'Заблокирован вами: покупки и переводы недоступны'
+              : 'Активен: покупки и переводы доступны'
+          }
+          end={<Switch checked={!accountBlocked} onChange={(on) => setAccountBlocked(!on)} label="Счёт активен" />}
         />
         <Row
           icon="limit"

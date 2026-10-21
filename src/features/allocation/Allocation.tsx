@@ -21,7 +21,7 @@ export function AllocationGate({ allocation, onClose }: { allocation: IncomingAl
 export function AllocationSheet({ allocation, overview, onClose }: { allocation: IncomingAllocation; overview: ChildOverview; onClose: () => void }) {
   const isJunior = overview.settings.ageGroup === 'junior';
   const name = overview.member.firstName;
-  const goals = overview.goals.filter((g) => g.goal);
+  const goals = overview.goals.filter((g) => !g.reachedAt);
   const [unit, setUnit] = useState<Unit>('percent');
   const [percent, setPercent] = useState('50');
   const [sum, setSum] = useState('');

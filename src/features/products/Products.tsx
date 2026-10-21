@@ -4,7 +4,7 @@ import { api } from '@/api';
 import { useAction, useQuery } from '@/app/data';
 import { navigate } from '@/app/router';
 import { toast } from '@/app/toast';
-import { AGE_GROUPS, formatMoney, PACKAGE, packageDiscountPercent, packageMonthlyPrice, PACKAGE_PRICING, PRODUCTS, type ProductDef } from '@/domain';
+import { AGE_GROUPS, formatMoney, goalsReserved, PACKAGE, packageDiscountPercent, packageMonthlyPrice, PACKAGE_PRICING, PRODUCTS, savingsAvailable, savingsTotal, type ProductDef } from '@/domain';
 import { Amount, Card, Locked, Page, PromoBanner, Row, Section, TopBar } from '@/ui/kit';
 import { Load } from '../shared';
 import type { IconName } from '@/ui/icons';
@@ -43,24 +43,31 @@ export function ParentProducts() {
                         to={`/child/${c.member.id}`}
                         chevron
                       />
-                      {o.deposit && (
-                        <Row
-                          icon="piggy"
-                          title="Накопительный счёт"
-                          subtitle="Счёт на имя ребёнка"
-                          end={<Amount value={o.deposit.balance} sign="auto" />}
-                          to={`/child/${c.member.id}/deposit`}
-                          chevron
-                        />
-                      )}
-                      {o.goals.filter((g) => g.goal).map((g) => (
+                      {o.deposit && (() => {
+                        const reserved = goalsReserved(o.goals);
+                        return (
+                          <Row
+                            icon="piggy"
+                            title="Накопительный счёт"
+                            subtitle={
+                              o.goals.length > 0
+                                ? `Свободно ${formatMoney(savingsAvailable(o.deposit, o.goals))} · в копилках ${formatMoney(reserved)}`
+                                : 'Счёт на имя ребёнка'
+                            }
+                            end={<Amount value={savingsTotal(o.deposit)} sign="auto" />}
+                            to={`/child/${c.member.id}/deposit`}
+                            chevron
+                          />
+                        );
+                      })()}
+                      {o.goals.map((g) => (
                         <Row
                           key={g.id}
                           icon="piggy"
                           title={g.title}
-                          subtitle={`Копилка · цель ${formatMoney(g.goal!.target)}`}
+                          subtitle={`Копилка · цель ${formatMoney(g.target)}`}
                           end={<Amount value={g.balance} sign="auto" />}
-                          to={`/child/${c.member.id}`}
+                          to={c.ageGroup === 'junior' ? `/child/${c.member.id}/goals` : `/child/${c.member.id}`}
                           chevron
                         />
                       ))}

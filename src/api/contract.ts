@@ -21,8 +21,11 @@ import type {
   ChildSettings,
   ConsentType,
   Family,
+  Goal,
   Id,
   IncomingAllocation,
+  InterestAccrual,
+  InterestRule,
   Level,
   Limits,
   Member,
@@ -94,7 +97,7 @@ export interface ChildOverview {
   access: Record<CapabilityId, AccessDecision>;
   account: Account;
   card: Card | null;
-  goals: Account[];
+  goals: Goal[];
   deposit: Account | null;
   spentToday: Money;
   spentMonth: Money;
@@ -184,6 +187,7 @@ export interface BankApi {
   setBlockedCategories(childId: Id, categories: CategoryId[]): Promise<void>;
   setNotifyEveryOperation(childId: Id, value: boolean): Promise<void>;
   setCardBlocked(cardId: Id, blocked: boolean): Promise<void>;
+  setAccountBlocked(accountId: Id, blocked: boolean): Promise<void>;
   reportCardLost(cardId: Id): Promise<{ newCardId: Id }>;
   inviteToMoby(childId: Id): Promise<{ code: string }>;
   confirmMoby(childId: Id): Promise<void>;
@@ -191,6 +195,11 @@ export interface BankApi {
   topUpChild(childId: Id, amount: Money, targetAccountId?: Id): Promise<{ allocation: IncomingAllocation | null }>;
   openDeposit(childId: Id): Promise<void>;
   closeDeposit(childId: Id): Promise<void>;
+  /** Правило распределения процентов. Ребёнку до 14 лет недоступно. */
+  interestRule(childId: Id): Promise<InterestRule | null>;
+  setInterestRule(childId: Id, rule: InterestRule): Promise<void>;
+  /** Демо-начисление процентов на весь остаток счёта. */
+  accrueInterest(childId: Id): Promise<InterestAccrual>;
   moveDeposit(input: DepositMoveInput): Promise<{ requestId: Id | null }>;
   setAllowance(childId: Id, value: { amount: Money } | null): Promise<void>;
   resolveRequest(requestId: Id, approve: boolean): Promise<void>;
@@ -206,9 +215,10 @@ export interface BankApi {
   transferMoney(input: TransferInput): Promise<TransferResult>;
   createRequest(payload: AccessRequestPayload, comment?: string): Promise<{ requestId: Id }>;
   submitTask(taskId: Id): Promise<void>;
-  createGoal(title: string, target: Money): Promise<{ accountId: Id }>;
-  deleteGoal(goalId: Id): Promise<{ requestId: Id | null }>;
-  moveToGoal(goalId: Id, amount: Money, direction: 'in' | 'out'): Promise<{ requestId: Id | null }>;
+  /** Для ребёнка — своя копилка; родитель передаёт childId (только до 14 лет). */
+  createGoal(title: string, target: Money, childId?: Id): Promise<{ goalId: Id }>;
+  deleteGoal(goalId: Id, childId?: Id): Promise<{ requestId: Id | null }>;
+  moveToGoal(goalId: Id, amount: Money, direction: 'in' | 'out', childId?: Id): Promise<{ requestId: Id | null }>;
 
   // --- Общее ---
   completeLesson(lessonId: string, answers: number[]): Promise<{ score: number; points: number }>;

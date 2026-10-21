@@ -76,8 +76,8 @@ describe('authorizePayment', () => {
     notifyParentOnEveryOperation: false,
     ...patch,
   });
-  const account: Account = { id: 'a', ownerId: 'c', kind: 'current', title: '', balance: byn(100), createdAt: '' };
-  const card: Card = { id: 'k', accountId: 'a', holderId: 'c', form: 'physical', last4: '0000', status: 'active', replacedBy: null };
+  const account: Account = { id: 'a', ownerId: 'c', kind: 'current', title: '', balance: byn(100), status: 'active', createdAt: '' };
+  const card: Card = { id: 'k', accountId: 'a', holderId: 'c', form: 'physical', last4: '0000', status: 'active', blockedByAccount: false, replacedBy: null };
   const ctx = (p: Partial<Parameters<typeof authorizePayment>[1]> = {}) => ({ settings: settings(), account, card, spentToday: byn(0), spentMonth: byn(0), ...p });
 
   it('одобряет обычную покупку', () => {
@@ -87,9 +87,20 @@ describe('authorizePayment', () => {
     const d = authorizePayment({ amount: byn(5), channel: 'offline', category: 'gambling' }, ctx({ settings: settings({ blockedCategories: [] }) }));
     expect(d).toEqual({ outcome: 'decline', code: 'CATEGORY_FORBIDDEN', requestable: false });
   });
-  it('заблокированная карта проверяется первой', () => {
+  it('заблокированная карта проверяется раньше категории', () => {
     const d = authorizePayment({ amount: byn(5), channel: 'offline', category: 'gambling' }, ctx({ card: { ...card, status: 'blocked' } }));
     expect(d).toMatchObject({ outcome: 'decline', code: 'CARD_BLOCKED' });
+  });
+  it('заблокированный счёт останавливает оплату даже с активной картой', () => {
+    const d = authorizePayment({ amount: byn(5), channel: 'offline', category: 'food' }, ctx({ account: { ...account, status: 'blocked' } }));
+    expect(d).toMatchObject({ outcome: 'decline', code: 'ACCOUNT_BLOCKED', requestable: false });
+  });
+  it('блокировка счёта важнее блокировки карты', () => {
+    const d = authorizePayment(
+      { amount: byn(5), channel: 'offline', category: 'food' },
+      ctx({ account: { ...account, status: 'blocked' }, card: { ...card, status: 'lost' } }),
+    );
+    expect(d).toMatchObject({ code: 'ACCOUNT_BLOCKED' });
   });
   it('категория родителя, лимиты и порог подтверждения', () => {
     expect(authorizePayment({ amount: byn(5), channel: 'offline', category: 'games' }, ctx())).toMatchObject({ code: 'CATEGORY_BLOCKED_BY_PARENT', requestable: true });

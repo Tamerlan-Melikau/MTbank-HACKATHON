@@ -9,6 +9,7 @@ import { capabilityAccess } from './policy';
 import type { Account, Card, Channel, ChildSettings } from './types';
 
 export type DeclineCode =
+  | 'ACCOUNT_BLOCKED'
   | 'CARD_BLOCKED'
   | 'CARD_LOST'
   | 'CATEGORY_FORBIDDEN'
@@ -51,18 +52,21 @@ export const CHANNEL_CAPABILITY: Record<PaymentOp['channel'], CapabilityId> = {
 export function authorizePayment(op: PaymentOp, ctx: PaymentContext): PaymentDecision {
   const { settings, account, card } = ctx;
 
-  // 1. Карта
+  // 1. Счёт
+  if (account.status === 'blocked') return { outcome: 'decline', code: 'ACCOUNT_BLOCKED', requestable: false };
+
+  // 2. Карта
   if (card) {
     if (card.status === 'lost') return { outcome: 'decline', code: 'CARD_LOST', requestable: false };
     if (card.status === 'blocked') return { outcome: 'decline', code: 'CARD_BLOCKED', requestable: false };
   }
 
-  // 2. Всегда запрещённые категории — никакой родитель не разрешит
+  // 3. Всегда запрещённые категории — никакой родитель не разрешит
   if (op.category && CATEGORIES[op.category].hardBlocked) {
     return { outcome: 'decline', code: 'CATEGORY_FORBIDDEN', requestable: false };
   }
 
-  // 3. Канал (касса / интернет / банкомат / перевод) по правам ребёнка
+  // 4. Канал (касса / интернет / банкомат / перевод) по правам ребёнка
   const access = capabilityAccess(settings, CHANNEL_CAPABILITY[op.channel]);
   if (access.kind === 'denied') {
     return access.reason === 'age'
@@ -70,15 +74,15 @@ export function authorizePayment(op: PaymentOp, ctx: PaymentContext): PaymentDec
       : { outcome: 'decline', code: 'CHANNEL_OFF', requestable: true };
   }
 
-  // 4. Категории, запрещённые родителем
+  // 5. Категории, запрещённые родителем
   if (op.category && settings.blockedCategories.includes(op.category)) {
     return { outcome: 'decline', code: 'CATEGORY_BLOCKED_BY_PARENT', requestable: true };
   }
 
-  // 5. Деньги
+  // 6. Деньги
   if (gt(op.amount, account.balance)) return { outcome: 'decline', code: 'INSUFFICIENT_FUNDS', requestable: true };
 
-  // 6. Лимиты
+  // 7. Лимиты
   const { limits } = settings;
   if (settings.ageGroup !== 'junior' && limits.perTransaction && gt(op.amount, limits.perTransaction)) {
     return { outcome: 'decline', code: 'LIMIT_PER_TX', requestable: true };
@@ -90,7 +94,7 @@ export function authorizePayment(op: PaymentOp, ctx: PaymentContext): PaymentDec
     return { outcome: 'decline', code: 'LIMIT_MONTHLY', requestable: true };
   }
 
-  // 7. Нужно ли подтверждение родителя
+  // 8. Нужно ли подтверждение родителя
   if (access.kind === 'approval') return { outcome: 'needs_approval', code: 'CHANNEL_APPROVAL' };
   if (limits.approvalFrom && !gt(limits.approvalFrom, op.amount)) {
     return { outcome: 'needs_approval', code: 'ABOVE_THRESHOLD' };
@@ -100,6 +104,7 @@ export function authorizePayment(op: PaymentOp, ctx: PaymentContext): PaymentDec
 
 /** Тексты причин: родителю на «вы», ребёнку на «ты». */
 export const REASON_TEXT: Record<DeclineCode | ApprovalCode, { parent: string; child: string }> = {
+  ACCOUNT_BLOCKED: { parent: 'Счёт заблокирован', child: 'Счёт заблокирован. Попроси родителя разблокировать его' },
   CARD_BLOCKED: { parent: 'Карта заблокирована', child: 'Карта заблокирована. Попроси родителя её разблокировать' },
   CARD_LOST: { parent: 'Карта отмечена как утерянная', child: 'Карта отмечена как утерянная' },
   CATEGORY_FORBIDDEN: { parent: 'Категория запрещена для детей всегда', child: 'Такие покупки детям недоступны' },

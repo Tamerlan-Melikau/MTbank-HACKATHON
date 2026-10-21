@@ -2,7 +2,7 @@
  * Демо-семья. Даты рождения считаются от «сейчас», чтобы возраст персонажей не «уплывал».
  * Все имена и суммы вымышлены.
  */
-import { byn, defaultLevels, type Account, type Card, type ChildSettings } from '@/domain';
+import { byn, defaultLevels, type Account, type Card, type ChildSettings, type Goal } from '@/domain';
 import { emptyDb, nextId, type Db } from './db';
 
 function yearsAgo(now: Date, years: number, monthShift = 0): string {
@@ -31,22 +31,33 @@ export function seed(now: Date): Db {
   db.members.push(mom, dad, misha, katya);
 
   const acc = (ownerId: string, title: string, rub: number, kind: Account['kind'] = 'current'): Account => {
-    const a: Account = { id: nextId(db, 'acc'), ownerId, kind, title, balance: byn(rub), createdAt: daysAgo(now, 40) };
+    const a: Account = { id: nextId(db, 'acc'), ownerId, kind, title, balance: byn(rub), status: 'active', createdAt: daysAgo(now, 40) };
     db.accounts.push(a);
     return a;
   };
   const momAcc = acc(mom.id, 'Основной счёт', 1938.22);
   acc(dad.id, 'Основной счёт', 2410.5);
   const mishaAcc = acc(misha.id, 'Карманные', 23.4);
+  const mishaDeposit = acc(misha.id, 'Накопительный счёт', 123.1, 'deposit');
   const katyaAcc = acc(katya.id, 'Мой счёт', 86.15);
-  const bike: Account = {
-    ...acc(misha.id, 'На велосипед', 41, 'goal'),
-    goal: { target: byn(350), reachedAt: null },
+  const bike: Goal = {
+    id: nextId(db, 'goal'),
+    ownerId: misha.id,
+    depositId: mishaDeposit.id,
+    title: 'На велосипед',
+    balance: byn(41),
+    target: byn(350),
+    reachedAt: null,
+    createdAt: daysAgo(now, 40),
   };
-  db.accounts[db.accounts.length - 1] = bike;
+  db.goals.push(bike);
+  db.interestRules.push(
+    { childId: misha.id, percent: 20, goalIds: [bike.id] },
+    { childId: katya.id, percent: 0, goalIds: [] },
+  );
 
   const card = (accountId: string, holderId: string, last4: string, form: Card['form']) =>
-    db.cards.push({ id: nextId(db, 'card'), accountId, holderId, form, last4, status: 'active', replacedBy: null });
+    db.cards.push({ id: nextId(db, 'card'), accountId, holderId, form, last4, status: 'active', blockedByAccount: false, replacedBy: null });
   card(momAcc.id, mom.id, '1234', 'physical');
   card(mishaAcc.id, misha.id, '4821', 'physical');
   card(katyaAcc.id, katya.id, '7390', 'digital');

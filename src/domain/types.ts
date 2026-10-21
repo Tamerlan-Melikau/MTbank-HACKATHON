@@ -77,7 +77,26 @@ export interface Consent {
   revokedAt: IsoDateTime | null;
 }
 
-export type AccountKind = 'current' | 'goal' | 'deposit';
+export type AccountKind = 'current' | 'deposit';
+export type AccountStatus = 'active' | 'blocked';
+
+/** Какую часть начисленных процентов направлять в копилки. */
+export interface InterestRule {
+  /** 0–100: доля процентов, которая уходит в выбранные копилки. */
+  percent: number;
+  /** Копилки, между которыми делится эта доля. */
+  goalIds: Id[];
+}
+
+export interface InterestRuleRecord extends InterestRule {
+  childId: Id;
+}
+
+export interface InterestAccrual {
+  interest: Money;
+  toGoals: Money;
+  toFree: Money;
+}
 
 export interface Account {
   id: Id;
@@ -85,8 +104,21 @@ export interface Account {
   kind: AccountKind;
   title: string;
   balance: Money;
-  /** Только для копилки. */
-  goal?: { target: Money; reachedAt: IsoDateTime | null };
+  /** Блокировка счёта останавливает списания, но не мешает поступлениям. */
+  status: AccountStatus;
+  createdAt: IsoDateTime;
+}
+
+/** Копилка — цель внутри накопительного счёта, а не отдельный банковский счёт. */
+export interface Goal {
+  id: Id;
+  ownerId: Id;
+  depositId: Id;
+  title: string;
+  /** Сколько закреплено за целью внутри остатка накопительного счёта. */
+  balance: Money;
+  target: Money;
+  reachedAt: IsoDateTime | null;
   createdAt: IsoDateTime;
 }
 
@@ -100,6 +132,8 @@ export interface Card {
   form: CardForm;
   last4: string;
   status: CardStatus;
+  /** Карта заблокирована автоматически вместе со счётом (а не родителем вручную). */
+  blockedByAccount: boolean;
   /** Если родитель «перевыпустил» карту после утери — ссылка на новую. */
   replacedBy: Id | null;
 }
@@ -118,7 +152,8 @@ export type TxKind =
   | 'goal_in'
   | 'goal_out'
   | 'reward'
-  | 'cashback';
+  | 'cashback'
+  | 'interest';
 
 export interface Transaction {
   id: Id;

@@ -1,7 +1,7 @@
 import { api } from '@/api';
 import { useQuery } from '@/app/data';
 import { navigate } from '@/app/router';
-import { formatMoney, levelOf } from '@/domain';
+import { formatMoney, levelOf, savingsAvailable, savingsTotal } from '@/domain';
 import { BalanceHeader, Card, Page, Progress, PromoBanner, Row, Section } from '@/ui/kit';
 import { Load, TxList } from '../shared';
 import { AllocationSheet } from '../allocation/Allocation';
@@ -22,7 +22,7 @@ export function ChildHome() {
     <Load q={q} skeleton={4}>
       {({ o, txs, openTasks, unread }) => {
         const lvl = levelOf(o.points);
-        const goal = o.goals.find((g) => !g.goal?.reachedAt) ?? o.goals[0];
+        const goal = o.goals.find((g) => !g.reachedAt) ?? o.goals[0];
         return (
           <>
             <BalanceHeader
@@ -39,10 +39,18 @@ export function ChildHome() {
               ]}
             />
             <Page>
-              {o.card && o.card.status !== 'active' && (
+              {o.card && o.card.status !== 'active' && o.account.status !== 'blocked' && (
                 <PromoBanner
                   title="Карта не работает"
-                  text={o.card.status === 'blocked' ? 'Родитель заблокировал карту' : 'Карта отмечена как утерянная'}
+                  text={o.card.status === 'blocked' ? 'Родитель заблокировал карту. Переводы по счёту доступны' : 'Карта отмечена как утерянная'}
+                  action="Попросить родителя"
+                  onClick={() => navigate('/ask')}
+                />
+              )}
+              {o.account.status === 'blocked' && (
+                <PromoBanner
+                  title="Счёт заблокирован"
+                  text="Родитель закрыл покупки и переводы по счёту"
                   action="Попросить родителя"
                   onClick={() => navigate('/ask')}
                 />
@@ -60,23 +68,35 @@ export function ChildHome() {
                   to="/points"
                   chevron
                 />
-                {goal?.goal && (
+                {goal && (
                   <Row
                     icon="piggy"
                     title={goal.title}
                     subtitle={
                       <span style={{ display: 'grid', gap: 6, paddingTop: 4 }}>
                         <span>
-                          {formatMoney(goal.balance)} из {formatMoney(goal.goal.target)}
+                          {formatMoney(goal.balance)} из {formatMoney(goal.target)}
                         </span>
-                        <Progress value={goal.balance.minor / goal.goal.target.minor} label="Прогресс копилки" />
+                        <Progress value={goal.balance.minor / goal.target.minor} label="Прогресс копилки" />
                       </span>
                     }
                     to="/goals"
                     chevron
                   />
                 )}
-                {o.deposit && <Row icon="piggy" title="Накопительный счёт" subtitle={formatMoney(o.deposit.balance)} to="/deposit" chevron />}
+                {o.deposit && (
+                  <Row
+                    icon="piggy"
+                    title="Накопительный счёт"
+                    subtitle={
+                      o.goals.length > 0
+                        ? `${formatMoney(savingsTotal(o.deposit))} · свободно ${formatMoney(savingsAvailable(o.deposit, o.goals))}`
+                        : formatMoney(o.deposit.balance)
+                    }
+                    to="/deposit"
+                    chevron
+                  />
+                )}
                 <Row icon="book" title="Уроки о деньгах" subtitle="Проходи и получай баллы" to="/learn" chevron />
               </Card>
 

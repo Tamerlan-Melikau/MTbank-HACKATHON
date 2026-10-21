@@ -1,6 +1,7 @@
 export * from './age';
 export * from './capabilities';
 export * from './categories';
+export * from './deposit';
 export * from './gamification';
 export * from './money';
 export * from './payments';

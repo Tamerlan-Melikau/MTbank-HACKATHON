@@ -62,6 +62,7 @@ export const ROUTES: RouteDef[] = [
   { path: '/child/:id/topup', roles: ['parent'], tab: null, render: (p) => <TopUp id={p.id!} /> },
   { path: '/child/:id/allowance', roles: ['parent'], tab: null, render: (p) => <AllowanceSettings id={p.id!} /> },
   { path: '/child/:id/deposit', roles: ['parent'], tab: null, render: (p) => <Deposit id={p.id!} /> },
+  { path: '/child/:id/goals', roles: ['parent'], tab: null, render: (p) => <Goals id={p.id!} /> },
   { path: '/child/:id/history', roles: ['parent'], tab: null, render: (p) => <History memberId={p.id!} /> },
 
   // Ребёнок

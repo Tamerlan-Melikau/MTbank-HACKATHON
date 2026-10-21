@@ -44,6 +44,7 @@ const KIND_ICON: Record<TxKind, IconName> = {
   goal_out: 'piggy',
   reward: 'star',
   cashback: 'gift',
+  interest: 'piggy',
 };
 
 export function reasonText(code: string | null, role: Role): string | null {

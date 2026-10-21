@@ -11,6 +11,12 @@ const STATUS_LABEL: Record<CardStatus, string> = {
   lost: 'Утеряна',
 };
 
+const STATUS_ICON: Record<CardStatus, 'check' | 'lock' | 'alert'> = {
+  active: 'check',
+  blocked: 'lock',
+  lost: 'alert',
+};
+
 export function CardInfo() {
   const q = useQuery(async () => {
     const me = await api.me();
@@ -39,9 +45,13 @@ export function CardInfo() {
                   <Card flush>
                     <Row icon="card" title="Номер карты" subtitle={`•••• •••• •••• ${o.card.last4}`} />
                     <Row icon="card" title="Тип карты" subtitle={o.card.form === 'physical' ? 'Пластиковая' : 'Цифровая'} />
-                    <Row icon="check" title="Статус" subtitle={STATUS_LABEL[o.card.status]} />
+                    <Row icon={STATUS_ICON[o.card.status]} title="Статус" subtitle={STATUS_LABEL[o.card.status]} />
                     <Row icon="user" title="Держатель" subtitle={`${o.member.firstName} ${o.member.lastName}`} />
-                    <Row icon="pay" title="Счёт" subtitle={o.account.title} />
+                    <Row
+                      icon={o.account.status === 'blocked' ? 'lock' : 'pay'}
+                      title="Счёт"
+                      subtitle={`${o.account.title} · ${o.account.status === 'blocked' ? 'заблокирован' : 'активен'}`}
+                    />
                   </Card>
                 </Section>
               </>

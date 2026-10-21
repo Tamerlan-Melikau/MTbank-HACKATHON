@@ -10,7 +10,9 @@ import type {
   ChildSettings,
   Consent,
   Family,
+  Goal,
   IncomingAllocation,
+  InterestRuleRecord,
   LessonProgress,
   Member,
   Notification,
@@ -19,7 +21,7 @@ import type {
   Transaction,
 } from '@/domain';
 
-export const DB_VERSION = 4;
+export const DB_VERSION = 9;
 
 export interface Db {
   version: number;
@@ -29,6 +31,8 @@ export interface Db {
   childSettings: ChildSettings[];
   consents: Consent[];
   accounts: Account[];
+  goals: Goal[];
+  interestRules: InterestRuleRecord[];
   cards: Card[];
   transactions: Transaction[];
   allowances: Allowance[];
@@ -49,6 +53,8 @@ export function emptyDb(): Db {
     childSettings: [],
     consents: [],
     accounts: [],
+    goals: [],
+    interestRules: [],
     cards: [],
     transactions: [],
     allowances: [],

@@ -4,8 +4,8 @@ import { api } from '@/api';
 import { useAction, useQuery, useSession } from '@/app/data';
 import { goBack } from '@/app/router';
 import { toast } from '@/app/toast';
-import { formatMoney, parseMoney } from '@/domain';
-import { Button, Card, DemoNote, Empty, Field, Row, Screen, Section, Select } from '@/ui/kit';
+import { DEPOSIT_ANNUAL_RATE_PCT, formatMoney, goalsReserved, monthlyInterest, parseMoney, savingsAvailable, savingsTotal, type Goal, type InterestRule } from '@/domain';
+import { Button, Card, Checkbox, DemoNote, Empty, Field, Row, Screen, Section, Select } from '@/ui/kit';
 import { Load, TxList } from '../shared';
 
 export function Deposit({ id }: { id?: string }) {
@@ -23,7 +23,9 @@ export function Deposit({ id }: { id?: string }) {
       isParent ? Promise.resolve([]) : api.transferRecipients(),
     ]);
     const all = o.deposit ? await api.transactions(childId) : [];
-    return { o, recipients, txs: o.deposit ? all.filter((t) => t.accountId === o.deposit!.id) : [] };
+    const canManageInterest = !!o.deposit && (isParent ? o.settings.ageGroup === 'junior' : o.settings.ageGroup === 'teen');
+    const rule = canManageInterest ? await api.interestRule(childId) : null;
+    return { o, recipients, txs: o.deposit ? all.filter((t) => t.accountId === o.deposit!.id) : [], canManageInterest, rule };
   }, [childId, isParent]);
 
   const [close, closing] = useAction(async () => {
@@ -71,11 +73,21 @@ export function Deposit({ id }: { id?: string }) {
           ) : (
             <>
               {d.o.deposit ? (
+                (() => {
+                  const reserved = goalsReserved(d.o.goals);
+                  const total = savingsTotal(d.o.deposit);
+                  const available = savingsAvailable(d.o.deposit, d.o.goals);
+                  return (
                 <>
                   <Card>
                     <div className="ui-stack ui-stack--tight">
-                      <span className="t-caption muted">Баланс накопительного счёта</span>
-                      <span className="t-display ui-amount">{formatMoney(d.o.deposit.balance)}</span>
+                      <span className="t-caption muted">Всего на накопительном счёте</span>
+                      <span className="t-display ui-amount">{formatMoney(total)}</span>
+                      <span className="t-caption muted">
+                        {d.o.goals.length > 0
+                          ? `Свободно ${formatMoney(available)} · в копилках ${formatMoney(reserved)}`
+                          : `Свободно ${formatMoney(available)}`}
+                      </span>
                       <span className="t-caption muted">Счёт открыт на имя {d.o.member.firstName}</span>
                     </div>
                   </Card>
@@ -85,9 +97,21 @@ export function Deposit({ id }: { id?: string }) {
                       <Row icon="user" title="Владелец" subtitle={`${d.o.member.firstName}, ${d.o.age} лет`} />
                       <Row icon="piggy" title="Тип счёта" subtitle={d.o.deposit.title} />
                       <Row icon="history" title="Открыт" subtitle={new Date(d.o.deposit.createdAt).toLocaleDateString('ru-RU')} />
-                      <Row icon="shield" title="Процентная ставка" subtitle="По тарифам банка на дату открытия" />
+                      <Row icon="star" title="Процентная ставка" subtitle={`${DEPOSIT_ANNUAL_RATE_PCT}% годовых · демо`} />
+                      <Row icon="piggy" title="База процентов" subtitle="Весь остаток счёта, включая суммы в копилках" />
                     </Card>
                   </Section>
+
+                  {d.canManageInterest && d.rule && (
+                    <InterestSettings
+                      childId={childId}
+                      rule={d.rule}
+                      goals={d.o.goals}
+                      total={total}
+                      parent={isParent}
+                      onChanged={() => q.reload()}
+                    />
+                  )}
 
                   <Section title="Операции">
                     <TxList items={d.txs} role={isParent ? 'parent' : 'child'} empty="Операций по накопительному счёту пока нет" />
@@ -142,8 +166,11 @@ export function Deposit({ id }: { id?: string }) {
                             ? `При закрытии остаток ${formatMoney(d.o.deposit.balance)} вернётся на текущий счёт ребёнка.`
                             : 'На счёте нет денег — его можно закрыть без перевода остатка.'}
                         </div>
+                        {d.o.goals.length > 0 && (
+                          <div className="t-caption muted">Сначала закройте копилки — их деньги останутся на накопительном счёте.</div>
+                        )}
                         {isParent ? (
-                          <Button block variant="danger" onClick={() => close()} disabled={closing}>
+                          <Button block variant="danger" onClick={() => close()} disabled={closing || d.o.goals.length > 0}>
                             {closing ? 'Закрываем…' : 'Закрыть накопительный счёт'}
                           </Button>
                         ) : d.o.pendingRequests.some((r) => r.payload.type === 'deposit_close') ? (
@@ -151,7 +178,7 @@ export function Deposit({ id }: { id?: string }) {
                             Запрос уже у родителя
                           </Button>
                         ) : (
-                          <Button block onClick={() => requestClose()} disabled={requesting}>
+                          <Button block onClick={() => requestClose()} disabled={requesting || d.o.goals.length > 0}>
                             {requesting ? 'Отправляем…' : 'Запросить закрытие у родителя'}
                           </Button>
                         )}
@@ -159,6 +186,8 @@ export function Deposit({ id }: { id?: string }) {
                     </Card>
                   </Section>
                 </>
+                  );
+                })()
               ) : (
                 <Empty>Накопительный счёт не открыт</Empty>
               )}
@@ -168,5 +197,89 @@ export function Deposit({ id }: { id?: string }) {
       </Load>
       <DemoNote>Условия и ставка — допущения прототипа, требуют согласования с банком.</DemoNote>
     </Screen>
+  );
+}
+
+
+function InterestSettings({
+  childId,
+  rule,
+  goals,
+  total,
+  parent,
+  onChanged,
+}: {
+  childId: string;
+  rule: InterestRule;
+  goals: Goal[];
+  total: ReturnType<typeof savingsTotal>;
+  parent: boolean;
+  onChanged: () => void;
+}) {
+  const [percent, setPercent] = useState(String(rule.percent));
+  const [selected, setSelected] = useState<string[]>(rule.goalIds);
+  const activeGoals = goals.filter((g) => !g.reachedAt);
+
+  const [save, saving] = useAction(async () => {
+    const n = Number(percent.replace(',', '.'));
+    if (!Number.isFinite(n) || n < 0 || n > 100) throw new Error('Введите долю от 0 до 100');
+    await api.setInterestRule(childId, {
+      percent: Math.round(n),
+      goalIds: selected.filter((id) => activeGoals.some((g) => g.id === id)),
+    });
+    toast('Правило распределения процентов сохранено');
+    onChanged();
+  });
+
+  const [accrue, accruing] = useAction(async () => {
+    const r = await api.accrueInterest(childId);
+    toast(`Начислено ${formatMoney(r.interest)} · в копилки ${formatMoney(r.toGoals)}`);
+    onChanged();
+  });
+
+  const toggle = (id: string, on: boolean) =>
+    setSelected((prev) => (on ? [...new Set([...prev, id])] : prev.filter((x) => x !== id)));
+
+  return (
+    <Section title="Проценты">
+      <Card>
+        <div className="ui-stack">
+          <div className="t-body muted">
+            Проценты начисляются на весь остаток счёта — {formatMoney(total)}. За месяц примерно {formatMoney(monthlyInterest(total))}.
+          </div>
+          <Field
+            label="Доля процентов в копилки, %"
+            value={percent}
+            onChange={setPercent}
+            inputMode="decimal"
+            hint="0 — все проценты остаются свободными"
+          />
+          {activeGoals.length > 0 ? (
+            <div className="ui-stack ui-stack--tight">
+              <span className="t-label">Куда откладывать</span>
+              {activeGoals.map((g) => (
+                <Checkbox key={g.id} checked={selected.includes(g.id)} onChange={(on) => toggle(g.id, on)}>
+                  {g.title} · {formatMoney(g.balance)} из {formatMoney(g.target)}
+                </Checkbox>
+              ))}
+              <span className="t-caption muted">Если копилки не выбраны, вся доля останется свободной.</span>
+            </div>
+          ) : (
+            <div className="t-caption muted">Активных копилок нет — проценты будут оставаться свободными.</div>
+          )}
+          <Button block onClick={() => save()} disabled={saving}>
+            Сохранить правило
+          </Button>
+          <Button block variant="secondary" onClick={() => accrue()} disabled={accruing}>
+            Начислить проценты (демо)
+          </Button>
+          <span className="t-caption muted">
+            {parent
+              ? 'До 14 лет правило задаёте вы. Ребёнок его не видит.'
+              : 'С 14 лет вы сами решаете, какую часть процентов откладывать.'}
+          </span>
+        </div>
+      </Card>
+    </Section>
   );
 }
