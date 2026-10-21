@@ -207,6 +207,10 @@ export interface BankApi {
   setParentInterestRate(childId: Id, percent: number): Promise<void>;
   /** Демо-начисление процентов от родителя с его основного счёта. */
   accrueParentInterest(childId: Id): Promise<Money>;
+  /** Ребёнок 14+ открывает свой счёт «МТБелки». */
+  openOwnDeposit(): Promise<void>;
+  /** Ребёнок 14+ закрывает свой счёт «МТБелки». */
+  closeOwnDeposit(): Promise<void>;
   /** Ребёнок пополняет свой счёт «МТБелки» с основного счёта. До 14 лет — через запрос родителю. */
   topUpOwnDeposit(amount: Money): Promise<{ requestId: Id | null }>;
   moveDeposit(input: DepositMoveInput): Promise<{ requestId: Id | null }>;

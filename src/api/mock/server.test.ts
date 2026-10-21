@@ -15,6 +15,18 @@ describe('MockBank', () => {
     await expect(bank.setCapability('m_misha', 'card.pay.online', 'on')).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
+  it('у подростка по умолчанию нет возрастных запретов, родитель может их вернуть', async () => {
+    const bank = make();
+    await bank.signIn('m_anna');
+    const teen = await bank.childOverview('m_katya');
+    expect(teen.access['card.cash']).toMatchObject({ kind: 'allowed' });
+    expect(teen.access['card.pay.online']).toMatchObject({ kind: 'allowed' });
+    expect(teen.access['savings.deposit']).toMatchObject({ kind: 'allowed' });
+
+    await bank.setCapability('m_katya', 'card.cash', 'off');
+    expect((await bank.childOverview('m_katya')).access['card.cash']).toMatchObject({ kind: 'denied', reason: 'parent' });
+  });
+
   it('родитель не может превысить возрастной потолок', async () => {
     const bank = make();
     await bank.signIn('m_anna');
@@ -86,6 +98,8 @@ describe('MockBank', () => {
 
   it('запрос доступа: ребёнок просит, родитель разрешает', async () => {
     const bank = make();
+    await bank.signIn('m_anna');
+    await bank.setCapability('m_katya', 'card.cash', 'off');
     await bank.signIn('m_katya');
     await expect(bank.createRequest({ type: 'capability', capabilityId: 'card.pay.offline', level: 'on' })).rejects.toMatchObject({ code: 'POLICY_DENIED' });
     const { requestId } = await bank.createRequest({ type: 'capability', capabilityId: 'card.cash', level: 'on' });
@@ -479,6 +493,20 @@ describe('MockBank', () => {
     await bank.signIn('m_misha');
     await expect(bank.openDeposit(childId)).rejects.toMatchObject({ code: 'FORBIDDEN' });
     await expect(bank.createRequest({ type: 'product', productId: 'teen-deposit' })).rejects.toMatchObject({ code: 'POLICY_DENIED' });
+  });
+
+  it('подросток 14+ сам открывает и закрывает счёт «МТБелки»', async () => {
+    const bank = make();
+    await bank.signIn('m_katya');
+    await bank.openOwnDeposit();
+    expect((await bank.childOverview('m_katya')).deposit).toMatchObject({ title: DEPOSIT_TITLE, balance: { minor: 0 } });
+    await expect(bank.openOwnDeposit()).rejects.toMatchObject({ code: 'CONFLICT' });
+
+    await bank.closeOwnDeposit();
+    expect((await bank.childOverview('m_katya')).deposit).toBeNull();
+
+    await bank.signIn('m_misha');
+    await expect(bank.openOwnDeposit()).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
   it('родитель закрывает счёт «МТБелки» ребёнка', async () => {

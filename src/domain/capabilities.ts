@@ -57,7 +57,7 @@ export const CAPABILITIES: Record<CapabilityId, CapabilityDef> = {
     parentHint: 'Оплата на сайтах и в приложениях',
     childHint: 'Покупать в интернете',
     group: 'payments',
-    rules: { junior: { ceiling: 'approval', default: 'approval' }, teen: { ceiling: 'on', default: 'approval' } },
+    rules: { junior: { ceiling: 'approval', default: 'approval' }, teen: { ceiling: 'on', default: 'on' } },
     legalNote: 'Для 7–13 лет онлайн-покупки ограничены подтверждением родителя: рамки «мелких бытовых сделок».',
   },
   'card.cash': {
@@ -66,7 +66,7 @@ export const CAPABILITIES: Record<CapabilityId, CapabilityDef> = {
     parentHint: 'Снятие в банкоматах',
     childHint: 'Снимать наличные',
     group: 'payments',
-    rules: { junior: { ceiling: 'off', default: 'off' }, teen: { ceiling: 'on', default: 'off' } },
+    rules: { junior: { ceiling: 'off', default: 'off' }, teen: { ceiling: 'on', default: 'on' } },
   },
   'transfer.p2p': {
     id: 'transfer.p2p',
@@ -90,7 +90,7 @@ export const CAPABILITIES: Record<CapabilityId, CapabilityDef> = {
     parentHint: 'Долгосрочный вклад «МТБелки» на имя ребёнка',
     childHint: 'Свой вклад «МТБелки»',
     group: 'savings',
-    rules: { junior: { ceiling: 'none', default: 'off' }, teen: { ceiling: 'approval', default: 'off' } },
+    rules: { junior: { ceiling: 'none', default: 'off' }, teen: { ceiling: 'on', default: 'on' } },
     legalNote: 'С 14 лет — вклад на своё имя (ГК РБ, ст. 25). До 14 — вклад оформляет родитель на имя ребёнка вне детского доступа.',
   },
   'products.request': {

@@ -57,7 +57,7 @@ describe('policy', () => {
     expect(canParentSet('junior', 'savings.deposit', 'approval')).toBe(false);
   });
   it('выключено родителем → можно запросить; недоступно по возрасту → нельзя', () => {
-    const teen = { ageGroup: 'teen' as const, levels: defaultLevels('teen') };
+    const teen = { ageGroup: 'teen' as const, levels: { ...defaultLevels('teen'), 'card.cash': 'off' as const } };
     expect(capabilityAccess(teen, 'card.cash')).toEqual({ kind: 'denied', reason: 'parent', canRequest: true, requestLevel: 'on' });
     const junior = { ageGroup: 'junior' as const, levels: defaultLevels('junior') };
     expect(capabilityAccess(junior, 'card.cash')).toMatchObject({ kind: 'denied', reason: 'age', canRequest: false });

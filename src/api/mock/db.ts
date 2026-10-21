@@ -23,7 +23,7 @@ import type {
   Transaction,
 } from '@/domain';
 
-export const DB_VERSION = 13;
+export const DB_VERSION = 14;
 
 export interface Db {
   version: number;

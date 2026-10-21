@@ -1112,14 +1112,31 @@ export class MockBank implements BankApi {
     });
   }
 
-  /** Счёт «МТБелки» для ребёнка 7+ открывает только родитель. */
+  /** Счёт «МТБелки» ребёнку открывает родитель; подросток 14+ может открыть сам. */
   async openDeposit(childId: Id) {
     await this.write((db) => {
       this.requireParentOf(childId);
-      if (db.accounts.some((a) => a.ownerId === childId && a.kind === 'deposit')) throw new ApiError('CONFLICT', 'Счёт «МТБелки» уже открыт');
-      db.accounts.push({ id: nextId(db, 'acc'), ownerId: childId, kind: 'deposit', title: DEPOSIT_TITLE, balance: ZERO, status: 'active', createdAt: this.iso() });
-      this.notify(childId, 'Счёт «МТБелки» открыт', 'Родитель открыл счёт на твоё имя');
+      this.openDepositAccount(db, childId, 'Родитель открыл счёт на твоё имя');
     });
+  }
+
+  /** Подросток 14+ открывает свой счёт «МТБелки» сам. */
+  async openOwnDeposit() {
+    await this.write((db) => {
+      const s = this.requireChild();
+      const child = this.member(s.memberId);
+      const st = this.settings(child.id);
+      this.syncAgeGroup(child, st);
+      if (st.ageGroup !== 'teen') throw new ApiError('FORBIDDEN', 'До 14 лет счёт открывает родитель');
+      if (capabilityAccess(st, 'savings.deposit').kind !== 'allowed') throw new ApiError('POLICY_DENIED', 'Открытие счёта не разрешено родителем');
+      this.openDepositAccount(db, child.id, 'Ты открыл счёт на своё имя');
+    });
+  }
+
+  private openDepositAccount(db: Db, childId: Id, message: string) {
+    if (db.accounts.some((a) => a.ownerId === childId && a.kind === 'deposit')) throw new ApiError('CONFLICT', 'Счёт «МТБелки» уже открыт');
+    db.accounts.push({ id: nextId(db, 'acc'), ownerId: childId, kind: 'deposit', title: DEPOSIT_TITLE, balance: ZERO, status: 'active', createdAt: this.iso() });
+    this.notify(childId, 'Счёт «МТБелки» открыт', message);
   }
 
   /** Закрытие счёта «МТБелки»: остаток возвращается на текущий счёт ребёнка. */
@@ -1127,6 +1144,19 @@ export class MockBank implements BankApi {
     await this.write((db) => {
       this.requireParentOf(childId);
       this.closeDepositAccount(db, childId);
+    });
+  }
+
+  /** Подросток 14+ закрывает свой счёт «МТБелки» сам. */
+  async closeOwnDeposit() {
+    await this.write((db) => {
+      const s = this.requireChild();
+      const child = this.member(s.memberId);
+      const st = this.settings(child.id);
+      this.syncAgeGroup(child, st);
+      if (st.ageGroup !== 'teen') throw new ApiError('FORBIDDEN', 'До 14 лет счёт закрывает родитель');
+      if (capabilityAccess(st, 'savings.deposit').kind !== 'allowed') throw new ApiError('POLICY_DENIED', 'Закрытие счёта не разрешено родителем');
+      this.closeDepositAccount(db, child.id);
     });
   }
 

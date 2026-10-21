@@ -27,8 +27,12 @@ export function Goals({ id }: { id?: string }) {
     q.reload();
   });
   const [openDeposit, openingDeposit] = useAction(async () => {
-    if (!id) return;
-    await api.openDeposit(id);
+    if (isParent) {
+      if (!id) return;
+      await api.openDeposit(id);
+    } else {
+      await api.openOwnDeposit();
+    }
     toast('Счёт «МТБелки» открыт');
     q.reload();
   });
@@ -82,20 +86,25 @@ export function Goals({ id }: { id?: string }) {
                     />
                   ) : (
                     (() => {
+                      const canOpen = o.access['savings.deposit'].kind === 'allowed';
                       const canRequest = o.settings.ageGroup === 'teen' && o.access['products.request'].kind !== 'denied';
                       const requested = o.pendingRequests.some((r) => r.payload.type === 'product' && r.payload.productId === 'teen-deposit');
                       return (
                         <Locked
                           title="Сначала откройте счёт «МТБелки»"
                           text={
-                            canRequest
-                              ? 'Деньги на цели откладываются с счёта «МТБелки». Попросите родителя открыть его.'
-                              : 'Деньги на цели откладываются с счёта «МТБелки». Попросите родителя открыть его в вашем профиле.'
+                            canOpen
+                              ? 'Деньги на цели откладываются с вашего счёта «МТБелки». Откройте его, чтобы начать копить.'
+                              : canRequest
+                                ? 'Деньги на цели откладываются с счёта «МТБелки». Попросите родителя открыть его.'
+                                : 'Деньги на цели откладываются с счёта «МТБелки». Попросите родителя открыть его в вашем профиле.'
                           }
                           action={
-                            canRequest
-                              ? { label: requested ? 'Запрос уже у родителя' : 'Попросить открыть счёт', onClick: () => askDeposit(), disabled: askingDeposit || requested }
-                              : undefined
+                            canOpen
+                              ? { label: 'Открыть счёт «МТБелки»', onClick: () => openDeposit(), disabled: openingDeposit }
+                              : canRequest
+                                ? { label: requested ? 'Запрос уже у родителя' : 'Попросить открыть счёт', onClick: () => askDeposit(), disabled: askingDeposit || requested }
+                                : undefined
                           }
                         />
                       );

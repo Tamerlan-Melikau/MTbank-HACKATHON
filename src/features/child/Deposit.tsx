@@ -42,9 +42,21 @@ export function Deposit({ id }: { id?: string }) {
         : 'Закрыть счёт «МТБелки»?',
     );
     if (!ok) return;
-    await api.closeDeposit(childId);
+    await (isParent ? api.closeDeposit(childId) : api.closeOwnDeposit());
     toast('Счёт «МТБелки» закрыт');
-    goBack(`/child/${childId}`);
+    goBack(back);
+  });
+
+  const [openOwn, openingOwn] = useAction(async () => {
+    await api.openOwnDeposit();
+    toast('Счёт «МТБелки» открыт');
+    q.reload();
+  });
+
+  const [requestOpen, requestingOpen] = useAction(async () => {
+    await api.createRequest({ type: 'product', productId: 'teen-deposit' });
+    toast('Запрос отправлен родителю');
+    q.reload();
   });
 
   const [requestClose, requesting] = useAction(async () => {
@@ -219,7 +231,7 @@ export function Deposit({ id }: { id?: string }) {
                         {d.o.goals.length > 0 && (
                           <div className="t-caption muted">Сначала закройте копилки — их деньги останутся на счёте «МТБелки».</div>
                         )}
-                        {isParent ? (
+                        {isParent || d.o.access['savings.deposit'].kind === 'allowed' ? (
                           <Button block variant="danger" onClick={() => close()} disabled={closing || d.o.goals.length > 0}>
                             {closing ? 'Закрываем…' : 'Закрыть счёт «МТБелки»'}
                           </Button>
@@ -238,6 +250,37 @@ export function Deposit({ id }: { id?: string }) {
                 </>
                   );
                 })()
+              ) : d.o.settings.ageGroup === 'teen' ? (
+                <Section title="Счёт «МТБелки»">
+                  <Card>
+                    <div className="ui-stack">
+                      <div className="t-body muted">
+                        Вклад на своё имя: деньги лежат под процент, а копилки помогают откладывать на цель.
+                      </div>
+                      {(() => {
+                        const canOpen = d.o.access['savings.deposit'].kind === 'allowed';
+                        const canRequest = d.o.access['products.request'].kind !== 'denied';
+                        const requested = d.o.pendingRequests.some((r) => r.payload.type === 'product' && r.payload.productId === 'teen-deposit');
+                        if (canOpen) {
+                          return (
+                            <Button block onClick={() => openOwn()} disabled={openingOwn}>
+                              {openingOwn ? 'Открываем…' : 'Открыть счёт «МТБелки»'}
+                            </Button>
+                          );
+                        }
+                        if (requested) return <Button block disabled>Запрос уже у родителя</Button>;
+                        if (canRequest) {
+                          return (
+                            <Button block onClick={() => requestOpen()} disabled={requestingOpen}>
+                              {requestingOpen ? 'Отправляем…' : 'Попросить родителя открыть счёт'}
+                            </Button>
+                          );
+                        }
+                        return <div className="t-caption muted">Открыть счёт может родитель в вашем профиле.</div>;
+                      })()}
+                    </div>
+                  </Card>
+                </Section>
               ) : (
                 <Empty>Счёт «МТБелки» не открыт</Empty>
               )}
