@@ -1,7 +1,7 @@
 import { api } from '@/api';
 import { useQuery } from '@/app/data';
 import { navigate } from '@/app/router';
-import { formatMoney, levelOf, savingsAvailable, savingsTotal } from '@/domain';
+import { formatMoney, levelOf } from '@/domain';
 import { BalanceHeader, Card, Page, Progress, PromoBanner, Row, Section } from '@/ui/kit';
 import { Load, TxList } from '../shared';
 import { AllocationSheet } from '../allocation/Allocation';
@@ -88,11 +88,7 @@ export function ChildHome() {
                   <Row
                     icon="piggy"
                     title="МТБелки"
-                    subtitle={
-                      o.goals.length > 0
-                        ? `${formatMoney(savingsTotal(o.deposit))} · свободно ${formatMoney(savingsAvailable(o.deposit, o.goals))}`
-                        : formatMoney(o.deposit.balance)
-                    }
+                    subtitle="Накопительный счёт"
                     to="/deposit"
                     chevron
                   />

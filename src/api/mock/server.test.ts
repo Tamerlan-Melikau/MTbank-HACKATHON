@@ -752,6 +752,48 @@ describe('MockBank', () => {
     expect((await bank.childOverview('m_katya')).account.balance.minor).toBe(before - 2000);
   });
 
+  it('подросток переводит между основным счётом, «МТБелками» и копилками', async () => {
+    const bank = make();
+    await bank.signIn('m_katya');
+    await bank.openOwnDeposit();
+    const { goalId } = await bank.createGoal('Наушники', byn(100));
+    const start = (await bank.childOverview('m_katya')).account.balance.minor;
+
+    await bank.transferOwn({ from: { kind: 'current' }, to: { kind: 'deposit' }, amount: byn(20) });
+    let o = await bank.childOverview('m_katya');
+    expect(o.account.balance.minor).toBe(start - 2000);
+    expect(o.deposit!.balance.minor).toBe(2000);
+
+    await bank.transferOwn({ from: { kind: 'deposit' }, to: { kind: 'goal', goalId }, amount: byn(5) });
+    o = await bank.childOverview('m_katya');
+    expect(o.deposit!.balance.minor).toBe(2000);
+    expect(o.goals.find((g) => g.id === goalId)!.balance.minor).toBe(500);
+
+    await bank.transferOwn({ from: { kind: 'goal', goalId }, to: { kind: 'current' }, amount: byn(3) });
+    o = await bank.childOverview('m_katya');
+    expect(o.account.balance.minor).toBe(start - 1700);
+    expect(o.deposit!.balance.minor).toBe(1700);
+    expect(o.goals.find((g) => g.id === goalId)!.balance.minor).toBe(200);
+
+    await expect(bank.transferOwn({ from: { kind: 'current' }, to: { kind: 'current' }, amount: byn(1) })).rejects.toMatchObject({ code: 'VALIDATION' });
+  });
+
+  it('ребёнок до 14 переводит между своими счетами через запрос', async () => {
+    const bank = make();
+    await bank.signIn('m_misha');
+    const before = await bank.childOverview('m_misha');
+    const r = await bank.transferOwn({ from: { kind: 'deposit' }, to: { kind: 'current' }, amount: byn(10) });
+    expect(r.requestId).not.toBeNull();
+    expect((await bank.childOverview('m_misha')).deposit!.balance.minor).toBe(before.deposit!.balance.minor);
+
+    await bank.signIn('m_anna');
+    await bank.resolveRequest(r.requestId as Id, true);
+    await bank.signIn('m_misha');
+    const after = await bank.childOverview('m_misha');
+    expect(after.deposit!.balance.minor).toBe(before.deposit!.balance.minor - 1000);
+    expect(after.account.balance.minor).toBe(before.account.balance.minor + 1000);
+  });
+
   it('родитель откладывает часть поступления ребёнка 7–13 на цель', async () => {
     const bank = make();
     await bank.signIn('m_anna');

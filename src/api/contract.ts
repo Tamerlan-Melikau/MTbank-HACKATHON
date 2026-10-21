@@ -32,6 +32,7 @@ import type {
   Member,
   Money,
   Notification,
+  OwnTransferEndpoint,
   PaymentDecision,
   PaymentOp,
   PointsEntry,
@@ -129,6 +130,13 @@ export interface DepositMoveInput {
   recipient: string;
 }
 
+/** Перевод между своими счетами, копилками и «МТБелками». */
+export interface OwnTransferInput {
+  from: OwnTransferEndpoint;
+  to: OwnTransferEndpoint;
+  amount: Money;
+}
+
 export interface TransferRecipient {
   memberId: Id;
   title: string;
@@ -214,6 +222,8 @@ export interface BankApi {
   /** Ребёнок пополняет свой счёт «МТБелки» с основного счёта. До 14 лет — через запрос родителю. */
   topUpOwnDeposit(amount: Money): Promise<{ requestId: Id | null }>;
   moveDeposit(input: DepositMoveInput): Promise<{ requestId: Id | null }>;
+  /** Перевод между основным счётом, «МТБелками» и копилками. */
+  transferOwn(input: OwnTransferInput): Promise<{ requestId: Id | null }>;
   setAllowance(childId: Id, value: { amount: Money } | null): Promise<void>;
   resolveRequest(requestId: Id, approve: boolean): Promise<void>;
   allocations(): Promise<IncomingAllocation[]>;

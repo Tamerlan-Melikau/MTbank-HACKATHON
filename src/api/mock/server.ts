@@ -58,6 +58,7 @@ import {
   type Limits,
   type Member,
   type Money,
+  type OwnTransferEndpoint,
   type Transaction,
   type TxKind,
 } from '@/domain';
@@ -68,6 +69,7 @@ import {
   type DepositMoveInput,
   type EnrollInput,
   type FamilyView,
+  type OwnTransferInput,
   type PayInput,
   type PayResult,
   type Persona,
@@ -1224,6 +1226,104 @@ export class MockBank implements BankApi {
     });
   }
 
+  /** Перевод между своими счетами: подросток сразу, младший — через запрос родителю. */
+  async transferOwn(input: OwnTransferInput) {
+    return this.write((db) => {
+      const s = this.requireChild();
+      const child = this.member(s.memberId);
+      const st = this.settings(child.id);
+      this.syncAgeGroup(child, st);
+      this.validateOwnTransfer(db, child.id, input);
+
+      if (st.ageGroup === 'junior') {
+        const payload: AccessRequestPayload = { type: 'own_transfer', ...input };
+        const dup = db.requests.find((r) => r.childId === child.id && r.status === 'pending' && JSON.stringify(r.payload) === JSON.stringify(payload));
+        if (dup) return { requestId: dup.id };
+        const id = nextId(db, 'req');
+        db.requests.push({ id, familyId: s.familyId, childId: child.id, payload, comment: '', status: 'pending', createdAt: this.iso(), resolvedAt: null, resolvedBy: null });
+        this.notifyParents(
+          s.familyId,
+          `${child.firstName} просит перевод`,
+          `${this.ownEndpointTitle(db, child.id, input.from)} → ${this.ownEndpointTitle(db, child.id, input.to)}, ${formatMoney(input.amount)}`,
+          '/requests',
+        );
+        return { requestId: id };
+      }
+
+      this.applyOwnTransfer(db, child.id, input);
+      return { requestId: null };
+    });
+  }
+
+  private ownEndpointTitle(db: Db, childId: Id, endpoint: OwnTransferEndpoint): string {
+    if (endpoint.kind === 'current') return 'Основной счёт';
+    if (endpoint.kind === 'deposit') return 'МТБелки';
+    const goal = db.goals.find((g) => g.id === endpoint.goalId && g.ownerId === childId);
+    return goal ? `Цель «${goal.title}»` : 'Цель';
+  }
+
+  private validateOwnTransfer(db: Db, childId: Id, input: OwnTransferInput) {
+    const { from, to, amount } = input;
+    if (amount.minor <= 0) throw new ApiError('VALIDATION', 'Сумма должна быть больше нуля');
+    if (
+      (from.kind === 'current' && to.kind === 'current') ||
+      (from.kind === 'deposit' && to.kind === 'deposit') ||
+      (from.kind === 'goal' && to.kind === 'goal' && from.goalId === to.goalId)
+    ) {
+      throw new ApiError('VALIDATION', 'Выберите разные счета');
+    }
+
+    const current = this.currentAccount(childId);
+    const deposit = db.accounts.find((a) => a.ownerId === childId && a.kind === 'deposit');
+    const needsDeposit = from.kind !== 'current' || to.kind !== 'current';
+    if (needsDeposit && !deposit) throw new ApiError('NOT_FOUND', 'Счёт «МТБелки» не открыт');
+    if (current.status === 'blocked' && (from.kind === 'current' || to.kind === 'current')) {
+      throw new ApiError('POLICY_DENIED', 'Основной счёт заблокирован родителем');
+    }
+    if (deposit?.status === 'blocked' && needsDeposit) throw new ApiError('POLICY_DENIED', 'Счёт «МТБелки» заблокирован родителем');
+
+    const goals = db.goals.filter((g) => g.ownerId === childId);
+    const sourceGoal = from.kind === 'goal' ? goals.find((g) => g.id === from.goalId) : null;
+    const targetGoal = to.kind === 'goal' ? goals.find((g) => g.id === to.goalId) : null;
+    if (from.kind === 'goal' && !sourceGoal) throw new ApiError('NOT_FOUND', 'Копилка не найдена');
+    if (to.kind === 'goal' && !targetGoal) throw new ApiError('NOT_FOUND', 'Копилка не найдена');
+    if (sourceGoal && gt(amount, sourceGoal.balance)) throw new ApiError('VALIDATION', 'В копилке недостаточно средств');
+    if (targetGoal?.reachedAt) throw new ApiError('CONFLICT', 'Цель уже достигнута — пополнение закрыто');
+    if (from.kind === 'current' && gt(amount, current.balance)) throw new ApiError('VALIDATION', 'Не хватает денег на счёте');
+    if (from.kind === 'deposit') this.requireFreeSavings(db, childId, amount);
+    if (from.kind === 'goal' && to.kind === 'current' && deposit && gt(amount, deposit.balance)) {
+      throw new ApiError('VALIDATION', 'На счёте «МТБелки» недостаточно средств');
+    }
+  }
+
+  private applyOwnTransfer(db: Db, childId: Id, input: OwnTransferInput) {
+    this.validateOwnTransfer(db, childId, input);
+    const { from, to, amount } = input;
+    const current = this.currentAccount(childId);
+    const deposit = db.accounts.find((a) => a.ownerId === childId && a.kind === 'deposit');
+    const sourceGoal = from.kind === 'goal' ? db.goals.find((g) => g.id === from.goalId && g.ownerId === childId) : null;
+    const targetGoal = to.kind === 'goal' ? db.goals.find((g) => g.id === to.goalId && g.ownerId === childId) : null;
+
+    if (sourceGoal) {
+      sourceGoal.balance = sub(sourceGoal.balance, amount);
+      if (sourceGoal.reachedAt && sourceGoal.balance.minor === 0) this.removeGoal(db, sourceGoal);
+    }
+
+    if (from.kind === 'current' && deposit && to.kind !== 'current') {
+      this.transfer(current, deposit, amount, { out: 'На счёт «МТБелки»', in: 'С основного счёта' }, { out: 'transfer_out', in: 'transfer_in' });
+    } else if (from.kind === 'deposit' && to.kind === 'current') {
+      this.transfer(deposit!, current, amount, { out: 'Со счёта «МТБелки»', in: 'На основной счёт' }, { out: 'transfer_out', in: 'transfer_in' });
+    } else if (from.kind === 'goal' && to.kind === 'current') {
+      const title = `Из копилки «${sourceGoal?.title ?? 'Цель'}»`;
+      this.transfer(deposit!, current, amount, { out: title, in: title }, { out: 'transfer_out', in: 'transfer_in' });
+    }
+
+    if (targetGoal) {
+      targetGoal.balance = add(targetGoal.balance, amount);
+      this.completeGoal(targetGoal, childId);
+    }
+  }
+
   private depositMoveVolume(db: Db, childId: Id, input: DepositMoveInput) {
     if (input.amount.minor <= 0) throw new ApiError('VALIDATION', 'Сумма должна быть больше нуля');
     this.requireFreeSavings(db, childId, input.amount);
@@ -1344,6 +1444,10 @@ export class MockBank implements BankApi {
         const hadMoney = goal.balance.minor > 0;
         this.removeGoal(db, goal);
         this.notify(childId, 'Копилка закрыта', hadMoney ? 'Деньги остались на счёте «МТБелки»' : 'Цель удалена');
+        return;
+      }
+      case 'own_transfer': {
+        this.applyOwnTransfer(db, childId, { from: p.from, to: p.to, amount: p.amount });
         return;
       }
       case 'deposit_close': {

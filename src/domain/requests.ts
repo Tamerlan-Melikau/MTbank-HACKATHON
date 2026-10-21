@@ -28,6 +28,8 @@ export function describePayload(p: AccessRequestPayload): string {
       return 'Подтверждение покупки';
     case 'transfer':
       return `Перевод: ${formatMoney(p.amount)} — ${p.recipient}`;
+    case 'own_transfer':
+      return `Перевод между счетами: ${formatMoney(p.amount)}`;
     case 'goal_withdraw':
       return `Вывод из копилки: ${formatMoney(p.amount)}`;
     case 'goal_close':

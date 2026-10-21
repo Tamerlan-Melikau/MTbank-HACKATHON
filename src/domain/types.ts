@@ -199,11 +199,18 @@ export interface InsurancePolicy {
   cancelledAt: IsoDateTime | null;
 }
 
+/** Куда/откуда ребёнок переводит деньги внутри своих счетов. */
+export type OwnTransferEndpoint =
+  | { kind: 'current' }
+  | { kind: 'deposit' }
+  | { kind: 'goal'; goalId: Id };
+
 /** Запрос ребёнка родителю: «доступ запрещён → запросить». */
 export type AccessRequestPayload =
   | { type: 'capability'; capabilityId: CapabilityId; level: Level }
   | { type: 'purchase'; transactionId: Id }
   | { type: 'transfer'; recipient: string; recipientId?: Id; amount: Money }
+  | { type: 'own_transfer'; from: OwnTransferEndpoint; to: OwnTransferEndpoint; amount: Money }
   | { type: 'money'; amount: Money }
   | { type: 'limit'; limit: keyof Limits; amount: Money }
   | { type: 'moby-access' }

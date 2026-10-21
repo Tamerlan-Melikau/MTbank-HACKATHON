@@ -102,11 +102,15 @@ export function Deposit({ id }: { id?: string }) {
                   const reserved = goalsReserved(d.o.goals);
                   const total = savingsTotal(d.o.deposit);
                   const available = savingsAvailable(d.o.deposit, d.o.goals);
+                  const openedAt = new Date(d.o.deposit.createdAt).toLocaleDateString('ru-RU');
                   return (
                 <>
                   <Card>
                     <div className="ui-stack ui-stack--tight">
-                      <span className="t-caption muted">Всего на счёте «МТБелки»</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+                        <span className="t-caption muted">Всего на счёте «МТБелки»</span>
+                        <span className="t-caption muted">открыто с {openedAt}</span>
+                      </div>
                       <span className="t-display ui-amount">{formatMoney(total)}</span>
                       <span className="t-caption muted">
                         {d.o.goals.length > 0
@@ -121,9 +125,7 @@ export function Deposit({ id }: { id?: string }) {
                     <Card flush>
                       <Row icon="user" title="Владелец" subtitle={`${d.o.member.firstName}, ${d.o.age} лет`} />
                       <Row icon="piggy" title="Тип счёта" subtitle={d.o.deposit.title} />
-                      <Row icon="history" title="Открыт" subtitle={new Date(d.o.deposit.createdAt).toLocaleDateString('ru-RU')} />
                       <Row icon="star" title="Процентная ставка" subtitle={`${DEPOSIT_ANNUAL_RATE_PCT}% годовых · демо`} />
-                      <Row icon="piggy" title="Минимум первого пополнения" subtitle={formatMoney(DEPOSIT_MIN_FIRST_TOPUP)} />
                       <Row icon="piggy" title="База процентов" subtitle="Весь остаток счёта, включая суммы в копилках" />
                     </Card>
                   </Section>
