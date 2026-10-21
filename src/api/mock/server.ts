@@ -346,6 +346,34 @@ export class MockBank implements BankApi {
     return deposit;
   }
 
+  /** Проверяет пополнение «МТБелок» с текущего счёта ребёнка. */
+  private depositTopUpSource(childId: Id, amount: Money): { current: Account; deposit: Account } {
+    if (amount.minor <= 0) throw new ApiError('VALIDATION', 'Сумма должна быть больше нуля');
+    const current = this.currentAccount(childId);
+    const deposit = this.db.accounts.find((a) => a.ownerId === childId && a.kind === 'deposit');
+    if (!deposit) throw new ApiError('NOT_FOUND', 'Счёт «МТБелки» не открыт');
+    if (current.status === 'blocked') throw new ApiError('POLICY_DENIED', 'Основной счёт заблокирован родителем');
+    if (deposit.status === 'blocked') throw new ApiError('POLICY_DENIED', 'Счёт «МТБелки» заблокирован родителем');
+    if (gt(amount, current.balance)) throw new ApiError('VALIDATION', 'На основном счёте недостаточно средств');
+    const firstFunding = deposit.balance.minor === 0 && !this.db.transactions.some((t) => t.accountId === deposit.id);
+    if (firstFunding && amount.minor < DEPOSIT_MIN_FIRST_TOPUP.minor) {
+      throw new ApiError('VALIDATION', `Минимальная сумма первого пополнения — ${formatMoney(DEPOSIT_MIN_FIRST_TOPUP)}`);
+    }
+    return { current, deposit };
+  }
+
+  /** Переводит деньги ребёнка с основного счёта на его «МТБелки». */
+  private transferToDepositFromCurrent(childId: Id, amount: Money) {
+    const { current, deposit } = this.depositTopUpSource(childId, amount);
+    this.transfer(
+      current,
+      deposit,
+      amount,
+      { out: 'На счёт «МТБелки»', in: 'С основного счёта' },
+      { out: 'transfer_out', in: 'transfer_in' },
+    );
+  }
+
   private removeGoal(db: Db, goal: Goal) {
     db.goals = db.goals.filter((g) => g.id !== goal.id);
     for (const rule of db.interestRules) rule.goalIds = rule.goalIds.filter((id) => id !== goal.id);
@@ -1114,6 +1142,30 @@ export class MockBank implements BankApi {
     this.notify(childId, 'Счёт «МТБелки» закрыт', 'Остаток переведён на текущий счёт');
   }
 
+  /** Пополнение «МТБелок» с основного счёта: подросток сразу, младший — через запрос родителю. */
+  async topUpOwnDeposit(amount: Money) {
+    return this.write((db) => {
+      const s = this.requireChild();
+      const child = this.member(s.memberId);
+      const st = this.settings(s.memberId);
+      this.syncAgeGroup(child, st);
+      this.depositTopUpSource(child.id, amount);
+
+      if (st.ageGroup === 'junior') {
+        const payload: AccessRequestPayload = { type: 'deposit_topup', amount };
+        const dup = db.requests.find((r) => r.childId === child.id && r.status === 'pending' && JSON.stringify(r.payload) === JSON.stringify(payload));
+        if (dup) return { requestId: dup.id };
+        const id = nextId(db, 'req');
+        db.requests.push({ id, familyId: s.familyId, childId: child.id, payload, comment: '', status: 'pending', createdAt: this.iso(), resolvedAt: null, resolvedBy: null });
+        this.notifyParents(s.familyId, `${child.firstName} просит`, describePayload(payload), '/requests');
+        return { requestId: id };
+      }
+
+      this.transferToDepositFromCurrent(child.id, amount);
+      return { requestId: null };
+    });
+  }
+
   /** Снятие со счёта «МТБелки»: подросток сразу, младший — через запрос родителю. */
   async moveDeposit(input: DepositMoveInput) {
     return this.write((db) => {
@@ -1263,6 +1315,10 @@ export class MockBank implements BankApi {
       }
       case 'deposit_close': {
         this.closeDepositAccount(db, childId);
+        return;
+      }
+      case 'deposit_topup': {
+        this.transferToDepositFromCurrent(childId, p.amount);
         return;
       }
       case 'deposit_withdraw': {

@@ -211,6 +211,7 @@ export type AccessRequestPayload =
   | { type: 'goal_withdraw'; goalId: Id; amount: Money }
   | { type: 'goal_close'; goalId: Id }
   | { type: 'deposit_close' }
+  | { type: 'deposit_topup'; amount: Money }
   | { type: 'deposit_withdraw'; amount: Money }
   | { type: 'deposit_transfer'; amount: Money; recipientId: Id; recipient: string };
 

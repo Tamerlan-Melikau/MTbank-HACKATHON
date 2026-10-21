@@ -14,6 +14,7 @@ export function Deposit({ id }: { id?: string }) {
   const childId = id ?? session?.memberId ?? '';
   const back = isParent ? `/child/${childId}` : '/products';
   const [amount, setAmount] = useState('');
+  const [topUpAmount, setTopUpAmount] = useState('');
   const [target, setTarget] = useState('own');
 
   const q = useQuery(async () => {
@@ -49,6 +50,15 @@ export function Deposit({ id }: { id?: string }) {
   const [requestClose, requesting] = useAction(async () => {
     await api.createRequest({ type: 'deposit_close' });
     toast('Запрос на закрытие отправлен родителю');
+    q.reload();
+  });
+
+  const [topUp, toppingUp] = useAction(async () => {
+    const m = parseMoney(topUpAmount);
+    if (!m || m.minor <= 0) throw new Error('Введите сумму');
+    const r = await api.topUpOwnDeposit(m);
+    toast(r.requestId ? 'Запрос отправлен родителю' : 'Счёт «МТБелки» пополнен');
+    setTopUpAmount('');
     q.reload();
   });
 
@@ -124,6 +134,38 @@ export function Deposit({ id }: { id?: string }) {
                   <Section title="Операции">
                     <TxList items={d.txs} role={isParent ? 'parent' : 'child'} empty="Операций по счёту «МТБелки» пока нет" />
                   </Section>
+
+                  {!isParent && (
+                    <Section title="Пополнить с основного счёта">
+                      <Card>
+                        <div className="ui-stack">
+                          <div className="t-body muted">
+                            {d.o.settings.ageGroup === 'junior'
+                              ? 'До 14 лет пополнение «МТБелок» подтверждает родитель.'
+                              : 'С 14 лет пополнение проходит сразу.'}
+                          </div>
+                          <span className="t-caption muted">Свободно на основном счёте: {formatMoney(d.o.account.balance)}</span>
+                          {d.o.deposit.balance.minor === 0 && d.txs.length === 0 && (
+                            <div className="t-caption muted">Минимум первого пополнения — {formatMoney(DEPOSIT_MIN_FIRST_TOPUP)}.</div>
+                          )}
+                          <Field label="Сумма, BYN" value={topUpAmount} onChange={setTopUpAmount} inputMode="decimal" placeholder="0,00" />
+                          {d.o.pendingRequests.some((r) => r.payload.type === 'deposit_topup') ? (
+                            <Button block disabled>
+                              Запрос уже у родителя
+                            </Button>
+                          ) : (
+                            <Button block onClick={() => topUp()} disabled={toppingUp}>
+                              {toppingUp
+                                ? 'Отправляем…'
+                                : d.o.settings.ageGroup === 'junior'
+                                  ? 'Запросить пополнение'
+                                  : 'Пополнить'}
+                            </Button>
+                          )}
+                        </div>
+                      </Card>
+                    </Section>
+                  )}
 
                   {!isParent && (
                     <Section title="Снять или перевести">

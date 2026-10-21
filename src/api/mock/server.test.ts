@@ -505,6 +505,69 @@ describe('MockBank', () => {
     expect((await bank.accounts('m_anna')).find((a) => a.kind === 'current')!.balance.minor).toBe(parentBefore - 4000);
   });
 
+  it('подросток пополняет «МТБелки» с основного счёта сразу', async () => {
+    const bank = make();
+    await bank.signIn('m_anna');
+    await bank.openDeposit('m_katya');
+
+    await bank.signIn('m_katya');
+    const before = await bank.childOverview('m_katya');
+    const result = await bank.topUpOwnDeposit(byn(20));
+    expect(result.requestId).toBeNull();
+
+    const after = await bank.childOverview('m_katya');
+    expect(after.account.balance.minor).toBe(before.account.balance.minor - 2000);
+    expect(after.deposit!.balance.minor).toBe(before.deposit!.balance.minor + 2000);
+    expect(await bank.transactions('m_katya')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ accountId: after.deposit!.id, kind: 'transfer_in', amount: expect.objectContaining({ minor: 2000 }) }),
+        expect.objectContaining({ accountId: after.account.id, kind: 'transfer_out', amount: expect.objectContaining({ minor: -2000 }) }),
+      ]),
+    );
+  });
+
+  it('ребёнок до 14 пополняет «МТБелки» только через запрос родителю', async () => {
+    const bank = make();
+    await bank.signIn('m_misha');
+    const before = await bank.childOverview('m_misha');
+    const result = await bank.topUpOwnDeposit(byn(10));
+    expect(result.requestId).toBeTruthy();
+    expect((await bank.childOverview('m_misha')).account.balance.minor).toBe(before.account.balance.minor);
+    expect((await bank.childOverview('m_misha')).deposit!.balance.minor).toBe(before.deposit!.balance.minor);
+
+    const again = await bank.topUpOwnDeposit(byn(10));
+    expect(again.requestId).toBe(result.requestId);
+
+    await bank.signIn('m_anna');
+    expect((await bank.requests({ status: 'pending' })).some((r) => r.payload.type === 'deposit_topup')).toBe(true);
+    await bank.resolveRequest(result.requestId!, true);
+
+    await bank.signIn('m_misha');
+    const after = await bank.childOverview('m_misha');
+    expect(after.account.balance.minor).toBe(before.account.balance.minor - 1000);
+    expect(after.deposit!.balance.minor).toBe(before.deposit!.balance.minor + 1000);
+  });
+
+  it('ребёнок не может пополнить «МТБелки» сверх остатка основного счёта', async () => {
+    const bank = make();
+    await bank.signIn('m_misha');
+    const before = await bank.childOverview('m_misha');
+    await expect(bank.topUpOwnDeposit(byn(100))).rejects.toMatchObject({ code: 'VALIDATION' });
+    expect((await bank.childOverview('m_misha')).account.balance.minor).toBe(before.account.balance.minor);
+    expect((await bank.requests({ status: 'pending' })).some((r) => r.payload.type === 'deposit_topup')).toBe(false);
+  });
+
+  it('первое пополнение «МТБелок» ребёнком — не меньше 10 BYN', async () => {
+    const bank = make();
+    await bank.signIn('m_anna');
+    await bank.openDeposit('m_katya');
+
+    await bank.signIn('m_katya');
+    await expect(bank.topUpOwnDeposit(byn(5))).rejects.toMatchObject({ code: 'VALIDATION' });
+    await bank.topUpOwnDeposit(DEPOSIT_MIN_FIRST_TOPUP);
+    expect((await bank.childOverview('m_katya')).deposit!.balance.minor).toBe(DEPOSIT_MIN_FIRST_TOPUP.minor);
+  });
+
   it('первое пополнение «МТБелок» — не меньше 10 BYN', async () => {
     const bank = make();
     await bank.signIn('m_anna');

@@ -34,6 +34,8 @@ export function describePayload(p: AccessRequestPayload): string {
       return 'Закрыть копилку';
     case 'deposit_close':
       return 'Закрыть счёт «МТБелки»';
+    case 'deposit_topup':
+      return `Пополнить «МТБелки»: ${formatMoney(p.amount)}`;
     case 'deposit_withdraw':
       return `Со счёта «МТБелки»: ${formatMoney(p.amount)}`;
     case 'deposit_transfer':
