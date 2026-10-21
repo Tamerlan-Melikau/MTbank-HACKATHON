@@ -31,18 +31,28 @@ export function Permissions({ id }: { id: string }) {
   return (
     <Load q={q} skeleton={5}>
       {(o) => {
+        const canEdit = o.settings.ageGroup === 'junior';
         const groups = (['payments', 'savings', 'extras'] as const)
           .map((g) => ({ g, items: CAPABILITY_LIST.filter((c) => c.group === g && isAvailable(o.settings.ageGroup, c)) }))
           .filter(({ items }) => items.length > 0);
         return (
           <Screen title="Права" back={`/child/${id}`}>
             <p className="t-body muted" style={{ margin: 0 }}>
-              {o.member.firstName}, {AGE_GROUPS[o.settings.ageGroup].label}. Часть возможностей зависит от возраста — их нельзя включить раньше времени.
+              {o.member.firstName}, {AGE_GROUPS[o.settings.ageGroup].label}.{' '}
+              {canEdit
+                ? 'Часть возможностей зависит от возраста — их нельзя включить раньше времени.'
+                : 'С 14 лет подросток сам решает, как пользоваться картой, счётом и накоплениями.'}
             </p>
+            {!canEdit && (
+              <Locked
+                title="Права настраивает подросток"
+                text="Родитель видит текущие настройки, но не может их менять. Лимиты, блокировки и запрещённые категории остаются у вас."
+              />
+            )}
             {groups.map(({ g, items }) => (
               <Section key={g} title={GROUP_TITLE[g]}>
                 {items.map((c) => (
-                  <CapabilityControl key={c.id} def={c} settings={o.settings} onChange={(l) => setLevel(c.id, l)} />
+                  <CapabilityControl key={c.id} def={c} settings={o.settings} readOnly={!canEdit} onChange={(l) => setLevel(c.id, l)} />
                 ))}
               </Section>
             ))}
@@ -79,7 +89,7 @@ function isAvailable(group: ChildSettings['ageGroup'], def: CapabilityDef) {
   return ceiling !== 'none' && ceiling !== 'off';
 }
 
-function CapabilityControl({ def, settings, onChange }: { def: CapabilityDef; settings: ChildSettings; onChange: (l: Level) => void }) {
+function CapabilityControl({ def, settings, readOnly, onChange }: { def: CapabilityDef; settings: ChildSettings; readOnly: boolean; onChange: (l: Level) => void }) {
   const allowed = allowedLevels(settings.ageGroup, def.id);
   return (
     <Card>
@@ -88,12 +98,16 @@ function CapabilityControl({ def, settings, onChange }: { def: CapabilityDef; se
           <div className="t-body" style={{ fontWeight: 600 }}>{def.title}</div>
           <div className="t-caption muted">{def.parentHint}</div>
         </div>
-        <Segmented
-          label={def.title}
-          value={settings.levels[def.id]}
-          onChange={onChange}
-          options={(['off', 'approval', 'on'] as Level[]).map((l) => ({ value: l, label: LEVEL_LABEL[l], disabled: !allowed.includes(l) }))}
-        />
+        {readOnly ? (
+          <div className="t-body">Сейчас: {LEVEL_LABEL[settings.levels[def.id]]}</div>
+        ) : (
+          <Segmented
+            label={def.title}
+            value={settings.levels[def.id]}
+            onChange={onChange}
+            options={(['off', 'approval', 'on'] as Level[]).map((l) => ({ value: l, label: LEVEL_LABEL[l], disabled: !allowed.includes(l) }))}
+          />
+        )}
       </div>
     </Card>
   );

@@ -92,7 +92,11 @@ export function ChildManage({ id }: { id: string }) {
               <Row
                 icon="shield"
                 title="Права и запреты"
-                subtitle={`Включено ${CAPABILITY_LIST.filter((c) => o.access[c.id].kind !== 'denied').length} из ${CAPABILITY_LIST.length} · запрещённых категорий ${o.settings.blockedCategories.length}`}
+                subtitle={
+                  o.settings.ageGroup === 'junior'
+                    ? `Включено ${CAPABILITY_LIST.filter((c) => o.access[c.id].kind !== 'denied').length} из ${CAPABILITY_LIST.length} · запрещённых категорий ${o.settings.blockedCategories.length}`
+                    : 'С 14 лет подросток настраивает права сам'
+                }
                 to={`/child/${id}/permissions`}
                 chevron
               />

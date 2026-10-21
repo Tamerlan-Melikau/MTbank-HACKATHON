@@ -772,6 +772,8 @@ export class MockBank implements BankApi {
     await this.write(() => {
       this.requireParentOf(childId);
       const st = this.settings(childId);
+      this.syncAgeGroup(this.member(childId), st);
+      if (st.ageGroup !== 'junior') throw new ApiError('FORBIDDEN', 'С 14 лет подросток настраивает права сам');
       if (!canParentSet(st.ageGroup, id, level)) throw new ApiError('POLICY_DENIED', 'Недоступно для этого возраста');
       st.levels[id] = level;
     });
@@ -1286,6 +1288,7 @@ export class MockBank implements BankApi {
     const st = this.settings(childId);
     switch (p.type) {
       case 'capability': {
+        if (st.ageGroup !== 'junior') throw new ApiError('FORBIDDEN', 'С 14 лет подросток настраивает права сам');
         const level = clampLevel(p.level, CAPABILITY_LIST.find((c) => c.id === p.capabilityId)!.rules[st.ageGroup].ceiling);
         st.levels[p.capabilityId] = level;
         return;
@@ -1574,7 +1577,9 @@ export class MockBank implements BankApi {
     return this.write((db) => {
       const s = this.requireChild();
       const st = this.settings(s.memberId);
+      this.syncAgeGroup(this.member(s.memberId), st);
       if (payload.type === 'capability') {
+        if (st.ageGroup !== 'junior') throw new ApiError('POLICY_DENIED', 'С 14 лет права настраивает сам подросток');
         const access = capabilityAccess(st, payload.capabilityId);
         if (access.kind !== 'denied' || !access.canRequest) throw new ApiError('POLICY_DENIED', 'Запросить это нельзя');
       }

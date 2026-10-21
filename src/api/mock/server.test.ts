@@ -15,7 +15,7 @@ describe('MockBank', () => {
     await expect(bank.setCapability('m_misha', 'card.pay.online', 'on')).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
-  it('у подростка по умолчанию нет возрастных запретов, родитель может их вернуть', async () => {
+  it('у подростка по умолчанию нет возрастных запретов, родитель не меняет права', async () => {
     const bank = make();
     await bank.signIn('m_anna');
     const teen = await bank.childOverview('m_katya');
@@ -23,16 +23,15 @@ describe('MockBank', () => {
     expect(teen.access['card.pay.online']).toMatchObject({ kind: 'allowed' });
     expect(teen.access['savings.deposit']).toMatchObject({ kind: 'allowed' });
 
-    await bank.setCapability('m_katya', 'card.cash', 'off');
-    expect((await bank.childOverview('m_katya')).access['card.cash']).toMatchObject({ kind: 'denied', reason: 'parent' });
+    await expect(bank.setCapability('m_katya', 'card.cash', 'off')).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect((await bank.childOverview('m_katya')).access['card.cash']).toMatchObject({ kind: 'allowed' });
   });
 
-  it('родитель не может превысить возрастной потолок', async () => {
+  it('родитель не может включить недоступное по возрасту и менять права подростка', async () => {
     const bank = make();
     await bank.signIn('m_anna');
     await expect(bank.setCapability('m_misha', 'card.cash', 'on')).rejects.toMatchObject({ code: 'POLICY_DENIED' });
-    await bank.setCapability('m_katya', 'card.cash', 'on');
-    expect((await bank.childOverview('m_katya')).access['card.cash'].kind).toBe('allowed');
+    await expect(bank.setCapability('m_katya', 'card.cash', 'on')).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
   it('уроки доступны только ребёнку', async () => {
@@ -99,13 +98,13 @@ describe('MockBank', () => {
   it('запрос доступа: ребёнок просит, родитель разрешает', async () => {
     const bank = make();
     await bank.signIn('m_anna');
-    await bank.setCapability('m_katya', 'card.cash', 'off');
-    await bank.signIn('m_katya');
-    await expect(bank.createRequest({ type: 'capability', capabilityId: 'card.pay.offline', level: 'on' })).rejects.toMatchObject({ code: 'POLICY_DENIED' });
-    const { requestId } = await bank.createRequest({ type: 'capability', capabilityId: 'card.cash', level: 'on' });
+    await bank.setCapability('m_misha', 'card.pay.offline', 'off');
+    await bank.signIn('m_misha');
+    await expect(bank.createRequest({ type: 'capability', capabilityId: 'card.cash', level: 'on' })).rejects.toMatchObject({ code: 'POLICY_DENIED' });
+    const { requestId } = await bank.createRequest({ type: 'capability', capabilityId: 'card.pay.offline', level: 'on' });
     await bank.signIn('m_anna');
     await bank.resolveRequest(requestId, true);
-    expect((await bank.childOverview('m_katya')).access['card.cash'].kind).toBe('allowed');
+    expect((await bank.childOverview('m_misha')).access['card.pay.offline'].kind).toBe('allowed');
     await expect(bank.resolveRequest(requestId, true)).rejects.toMatchObject({ code: 'CONFLICT' });
   });
 
