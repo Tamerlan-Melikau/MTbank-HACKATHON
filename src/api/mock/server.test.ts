@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byn, monthlyInterest, monthlyInterestAt, type Id } from '@/domain';
+import { byn, DEPOSIT_MIN_FIRST_TOPUP, DEPOSIT_TITLE, monthlyInterest, monthlyInterestAt, type Id } from '@/domain';
 import { MockBank } from './server';
 import { memoryStorage } from './storage';
 import { seed } from './seed';
@@ -170,6 +170,21 @@ describe('MockBank', () => {
     const allowance = (await bank.childOverview('m_misha')).allowance!;
     expect(new Date(allowance.nextRunAt).getDate()).toBe(1);
     expect(allowance.amount.minor).toBe(5000);
+  });
+
+  it('старая база с лимитом на одну покупку мигрирует с сохранением данных', async () => {
+    const store = memoryStorage();
+    const legacy = seed(NOW);
+    legacy.version = 12;
+    const settings = legacy.childSettings.find((s) => s.childId === 'm_katya')!;
+    (settings.limits as unknown as { perTransaction: ReturnType<typeof byn> }).perTransaction = byn(150);
+    store.set('fw.db', JSON.stringify(legacy));
+
+    const bank = new MockBank({ db: store, session: memoryStorage(), now: () => new Date(NOW) });
+    await bank.signIn('m_anna');
+    const limits = (await bank.childOverview('m_katya')).settings.limits;
+    expect(limits).not.toHaveProperty('perTransaction');
+    expect(limits.daily?.minor).toBe(byn(200).minor);
   });
 
   it('месячные карманные приходят 1-го числа, а не через 30 дней', async () => {
@@ -356,7 +371,7 @@ describe('MockBank', () => {
     await expect(bank.accrueParentInterest('m_katya')).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
-  it('без накопительного счёта копилку создать нельзя', async () => {
+  it('без счёта «МТБелки» копилку создать нельзя', async () => {
     const bank = make();
     await bank.signIn('m_katya');
     await expect(bank.createGoal('Наушники', byn(100))).rejects.toMatchObject({ code: 'CONFLICT' });
@@ -367,7 +382,7 @@ describe('MockBank', () => {
     await expect(bank.createGoal('Наушники', byn(100))).resolves.toHaveProperty('goalId');
   });
 
-  it('деньги в копилке закрепляются внутри накопительного счёта', async () => {
+  it('деньги в копилке закрепляются внутри счёта «МТБелки»', async () => {
     const bank = make();
     await bank.signIn('m_misha');
     const before = await bank.childOverview('m_misha');
@@ -416,7 +431,7 @@ describe('MockBank', () => {
     expect((await bank.childOverview('m_misha')).account.balance.minor).toBe(before);
   });
 
-  it('подросток удаляет копилку, деньги возвращаются на накопительный счёт', async () => {
+  it('подросток удаляет копилку, деньги возвращаются на счёт «МТБелки»', async () => {
     const bank = make();
     await bank.signIn('m_anna');
     await bank.openDeposit('m_katya');
@@ -449,7 +464,7 @@ describe('MockBank', () => {
     expect((await bank.childOverview('m_misha')).goals.some((g) => g.id === goalId)).toBe(false);
   });
 
-  it('родитель открывает накопительный счёт ребёнку 7–13', async () => {
+  it('родитель открывает счёт «МТБелки» ребёнку 7–13', async () => {
     const bank = make();
     await bank.signIn('m_anna');
     const { childId } = await bank.enroll({
@@ -466,7 +481,7 @@ describe('MockBank', () => {
     await expect(bank.createRequest({ type: 'product', productId: 'teen-deposit' })).rejects.toMatchObject({ code: 'POLICY_DENIED' });
   });
 
-  it('родитель закрывает накопительный счёт ребёнка', async () => {
+  it('родитель закрывает счёт «МТБелки» ребёнка', async () => {
     const bank = make();
     await bank.signIn('m_anna');
     await bank.openDeposit('m_katya');
@@ -478,7 +493,7 @@ describe('MockBank', () => {
     await expect(bank.closeDeposit('m_katya')).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
-  it('родитель пополняет накопительный счёт ребёнка', async () => {
+  it('родитель пополняет счёт «МТБелки» ребёнка', async () => {
     const bank = make();
     await bank.signIn('m_anna');
     await bank.openDeposit('m_katya');
@@ -490,7 +505,49 @@ describe('MockBank', () => {
     expect((await bank.accounts('m_anna')).find((a) => a.kind === 'current')!.balance.minor).toBe(parentBefore - 4000);
   });
 
-  it('подросток снимает с накопительного счёта без согласия родителя', async () => {
+  it('первое пополнение «МТБелок» — не меньше 10 BYN', async () => {
+    const bank = make();
+    await bank.signIn('m_anna');
+    await bank.openDeposit('m_katya');
+    const deposit = (await bank.childOverview('m_katya')).deposit!;
+    expect(deposit.title).toBe(DEPOSIT_TITLE);
+
+    await expect(bank.topUpChild('m_katya', byn(5), deposit.id)).rejects.toMatchObject({ code: 'VALIDATION' });
+    expect((await bank.childOverview('m_katya')).deposit!.balance.minor).toBe(0);
+
+    await bank.topUpChild('m_katya', DEPOSIT_MIN_FIRST_TOPUP, deposit.id);
+    expect((await bank.childOverview('m_katya')).deposit!.balance.minor).toBe(DEPOSIT_MIN_FIRST_TOPUP.minor);
+  });
+
+  it('подросток запрашивает «МТБелки», родитель одобряет открытие', async () => {
+    const bank = make();
+    await bank.signIn('m_katya');
+    const r = await bank.createRequest({ type: 'product', productId: 'teen-deposit' });
+    expect((await bank.childOverview('m_katya')).deposit).toBeNull();
+
+    await bank.signIn('m_anna');
+    await bank.resolveRequest(r.requestId!, true);
+    expect((await bank.childOverview('m_katya')).deposit).toMatchObject({ title: DEPOSIT_TITLE, balance: { minor: 0 } });
+  });
+
+  it('страхование оформляет только родитель, ребёнок управлять не может', async () => {
+    const bank = make();
+    await bank.signIn('m_anna');
+    expect((await bank.childOverview('m_katya')).insurance).toBeNull();
+    await bank.setChildInsurance('m_katya', true);
+    expect((await bank.childOverview('m_katya')).insurance).toMatchObject({ childId: 'm_katya', status: 'active' });
+    await expect(bank.setChildInsurance('m_katya', true)).rejects.toMatchObject({ code: 'CONFLICT' });
+
+    await bank.signIn('m_katya');
+    expect((await bank.childOverview('m_katya')).insurance).not.toBeNull();
+    await expect(bank.setChildInsurance('m_katya', false)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    await bank.signIn('m_anna');
+    await bank.setChildInsurance('m_katya', false);
+    expect((await bank.childOverview('m_katya')).insurance).toBeNull();
+  });
+
+  it('подросток снимает с счёта «МТБелки» без согласия родителя', async () => {
     const bank = make();
     await bank.signIn('m_anna');
     await bank.openDeposit('m_katya');
@@ -506,7 +563,7 @@ describe('MockBank', () => {
     expect(after.account.balance.minor).toBe(before.account.balance.minor + 2000);
   });
 
-  it('ребёнок до 14 снимает с накопительного счёта только с согласия родителя', async () => {
+  it('ребёнок до 14 снимает с счёта «МТБелки» только с согласия родителя', async () => {
     const bank = make();
     await bank.signIn('m_anna');
     const deposit = (await bank.childOverview('m_misha')).deposit!;
@@ -526,7 +583,7 @@ describe('MockBank', () => {
     expect(after.account.balance.minor).toBe(before.account.balance.minor + 1000);
   });
 
-  it('подросток закрывает накопительный счёт по запросу родителю', async () => {
+  it('подросток закрывает счёт «МТБелки» по запросу родителю', async () => {
     const bank = make();
     await bank.signIn('m_anna');
     await bank.openDeposit('m_katya');
@@ -686,7 +743,7 @@ describe('MockBank', () => {
     await expect(bank.allocateIncoming(allocation!.id, { unit: 'amount', amount: byn(20) }, goalId)).rejects.toMatchObject({ code: 'POLICY_DENIED' });
   });
 
-  it('с заблокированного накопительного счёта деньги не снимаются', async () => {
+  it('с заблокированного счёта «МТБелки» деньги не снимаются', async () => {
     const bank = make();
     await bank.signIn('m_anna');
     await bank.openDeposit('m_katya');

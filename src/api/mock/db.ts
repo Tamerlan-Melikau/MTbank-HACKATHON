@@ -12,6 +12,7 @@ import type {
   Family,
   Goal,
   IncomingAllocation,
+  InsurancePolicy,
   InterestRuleRecord,
   LessonProgress,
   Member,
@@ -22,7 +23,7 @@ import type {
   Transaction,
 } from '@/domain';
 
-export const DB_VERSION = 11;
+export const DB_VERSION = 13;
 
 export interface Db {
   version: number;
@@ -32,6 +33,7 @@ export interface Db {
   childSettings: ChildSettings[];
   consents: Consent[];
   accounts: Account[];
+  insurancePolicies: InsurancePolicy[];
   goals: Goal[];
   interestRules: InterestRuleRecord[];
   parentInterestRates: ParentInterestRateRecord[];
@@ -55,6 +57,7 @@ export function emptyDb(): Db {
     childSettings: [],
     consents: [],
     accounts: [],
+    insurancePolicies: [],
     goals: [],
     interestRules: [],
     parentInterestRates: [],

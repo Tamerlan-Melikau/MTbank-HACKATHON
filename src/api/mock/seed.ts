@@ -2,7 +2,7 @@
  * Демо-семья. Даты рождения считаются от «сейчас», чтобы возраст персонажей не «уплывал».
  * Все имена и суммы вымышлены.
  */
-import { byn, defaultLevels, type Account, type Card, type ChildSettings, type Goal } from '@/domain';
+import { byn, defaultLevels, DEPOSIT_TITLE, type Account, type Card, type ChildSettings, type Goal } from '@/domain';
 import { emptyDb, nextId, type Db } from './db';
 
 function yearsAgo(now: Date, years: number, monthShift = 0): string {
@@ -38,7 +38,7 @@ export function seed(now: Date): Db {
   const momAcc = acc(mom.id, 'Основной счёт', 1938.22);
   acc(dad.id, 'Основной счёт', 2410.5);
   const mishaAcc = acc(misha.id, 'Карманные', 23.4);
-  const mishaDeposit = acc(misha.id, 'Накопительный счёт', 123.1, 'deposit');
+  const mishaDeposit = acc(misha.id, DEPOSIT_TITLE, 123.1, 'deposit');
   const katyaAcc = acc(katya.id, 'Мой счёт', 86.15);
   const bike: Goal = {
     id: nextId(db, 'goal'),
@@ -69,8 +69,8 @@ export function seed(now: Date): Db {
     levels: defaultLevels(group),
     limits:
       group === 'junior'
-        ? { perTransaction: null, daily: byn(40), monthly: byn(150), approvalFrom: byn(20) }
-        : { perTransaction: byn(150), daily: byn(200), monthly: byn(600), approvalFrom: null },
+        ? { daily: byn(40), monthly: byn(150), approvalFrom: byn(20) }
+        : { daily: byn(200), monthly: byn(600), approvalFrom: null },
     blockedCategories: group === 'junior' ? ['games', 'subscriptions'] : [],
     moby: 'active',
     inviteCode: null,

@@ -2,7 +2,8 @@
  * Витрина продуктов пакета. Условия — ДОПУЩЕНИЯ для прототипа, не тарифы МТБанка.
  */
 import type { AgeGroup } from './age';
-import { byn, minor, type Money } from './money';
+import { DEPOSIT_ANNUAL_RATE_PCT, DEPOSIT_MIN_FIRST_TOPUP, DEPOSIT_TITLE } from './deposit';
+import { byn, formatMoney, minor, type Money } from './money';
 import type { CapabilityId } from './capabilities';
 
 export interface ProductDef {
@@ -29,8 +30,8 @@ export const PACKAGE = {
   terms: [
     'Обслуживание пакета: 5 BYN в месяц (допущение)',
     'Для многодетных семей (3 и более детей в пакете) — бесплатно',
-    'Кешбэк баллами 1% в семейных категориях у партнёров (допущение)',
-    'Баллы копятся отдельно у ребёнка и у родителя',
+    'Кешбэк Маничками 1% в семейных категориях у партнёров (допущение)',
+    'Манички копятся отдельно у ребёнка и у родителя',
   ],
 };
 
@@ -69,15 +70,34 @@ export const PRODUCTS: ProductDef[] = [
   },
   {
     id: 'teen-deposit',
-    title: 'Накопительный счёт',
+    title: DEPOSIT_TITLE,
     kind: 'savings',
     short: 'Долгосрочные накопления с процентом',
-    terms: ['Ставка — по тарифам банка на дату открытия (не указываем)'],
+    terms: [
+      `Минимум первого пополнения — ${formatMoney(DEPOSIT_MIN_FIRST_TOPUP)}`,
+      `Ставка — ${DEPOSIT_ANNUAL_RATE_PCT}% годовых (допущение прототипа)`,
+      'С 14 лет подросток может запросить открытие — родитель подтверждает',
+    ],
     forGroups: ['junior', 'teen'],
     capability: 'savings.deposit',
     issuedBy: 'parent',
     requestableBy: ['teen'],
-    legalNote: 'До 14 лет накопительный счёт открывает родитель на имя ребёнка; с 14 лет — сам ребёнок с согласия родителя.',
+    legalNote: 'До 14 лет счёт «МТБелки» открывает родитель; с 14 лет подросток может запросить открытие, родитель подтверждает.',
+  },
+  {
+    id: 'child-insurance',
+    title: 'Страхование ребёнка',
+    kind: 'insurance',
+    short: 'Добровольная защита здоровья ребёнка',
+    terms: [
+      'Условия и стоимость — допущение прототипа',
+      'Оформляет и отключает только родитель в разделе «Продукты»',
+    ],
+    forGroups: ['junior', 'teen'],
+    capability: null,
+    issuedBy: 'parent',
+    requestableBy: [],
+    legalNote: 'Страхование не оформляется ребёнком самостоятельно; условия требуют согласования с банком и страховщиком.',
   },
 ];
 

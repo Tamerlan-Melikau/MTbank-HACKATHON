@@ -17,7 +17,6 @@ export type DeclineCode =
   | 'CHANNEL_OFF'
   | 'CHANNEL_NOT_FOR_AGE'
   | 'INSUFFICIENT_FUNDS'
-  | 'LIMIT_PER_TX'
   | 'LIMIT_DAILY'
   | 'LIMIT_MONTHLY';
 
@@ -84,9 +83,6 @@ export function authorizePayment(op: PaymentOp, ctx: PaymentContext): PaymentDec
 
   // 7. Лимиты
   const { limits } = settings;
-  if (settings.ageGroup !== 'junior' && limits.perTransaction && gt(op.amount, limits.perTransaction)) {
-    return { outcome: 'decline', code: 'LIMIT_PER_TX', requestable: true };
-  }
   if (limits.daily && gt(add(ctx.spentToday, op.amount), limits.daily)) {
     return { outcome: 'decline', code: 'LIMIT_DAILY', requestable: true };
   }
@@ -112,7 +108,6 @@ export const REASON_TEXT: Record<DeclineCode | ApprovalCode, { parent: string; c
   CHANNEL_OFF: { parent: 'Способ оплаты выключен вами', child: 'Этот способ оплаты пока выключен' },
   CHANNEL_NOT_FOR_AGE: { parent: 'Недоступно в этом возрасте', child: 'Станет доступно, когда подрастёшь' },
   INSUFFICIENT_FUNDS: { parent: 'Недостаточно средств', child: 'Не хватает денег на карте' },
-  LIMIT_PER_TX: { parent: 'Превышен лимит на одну покупку', child: 'Покупка больше твоего лимита' },
   LIMIT_DAILY: { parent: 'Превышен дневной лимит', child: 'Лимит на сегодня закончился' },
   LIMIT_MONTHLY: { parent: 'Превышен месячный лимит', child: 'Лимит на месяц закончился' },
   CHANNEL_APPROVAL: { parent: 'Нужно ваше подтверждение', child: 'Ждём подтверждения родителя' },

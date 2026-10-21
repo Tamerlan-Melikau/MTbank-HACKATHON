@@ -73,7 +73,7 @@ export function Tasks() {
                       <div>
                         <div className="t-heading">{t.title}</div>
                         <div className="t-caption muted">
-                          {STATUS[t.status]} · {t.reward.points} баллов{t.reward.money ? ` + ${formatMoney(t.reward.money)}` : ''}
+                          {STATUS[t.status]} · {t.reward.points} Маничек{t.reward.money ? ` + ${formatMoney(t.reward.money)}` : ''}
                         </div>
                       </div>
                       {!isParent && t.status === 'assigned' && (
@@ -99,7 +99,7 @@ export function Tasks() {
               {isParent && selected && (
                 <Section title="Новое задание">
                   <Field label="Что сделать" value={title} onChange={setTitle} placeholder="Например, полить цветы" />
-                  <Field label="Баллы" value={points} onChange={setPoints} inputMode="numeric" />
+                  <Field label="Манички" value={points} onChange={setPoints} inputMode="numeric" />
                   <Field label="Деньги, BYN" value={money} onChange={setMoney} inputMode="decimal" hint="Необязательно. Спишем с вашего счёта, когда примете задание" />
                   <Button block onClick={() => create(selected)} disabled={creating || !title.trim()}>
                     Отправить задание
@@ -113,7 +113,7 @@ export function Tasks() {
                     {done.slice(0, 10).map((t) => (
                       <div key={t.id} className="ui-row">
                         <span className="ui-row__body t-body">{t.title}</span>
-                        <span className="t-label positive">+{t.reward.points} баллов</span>
+                        <span className="t-label positive">+{t.reward.points} Маничек</span>
                       </div>
                     ))}
                   </Card>

@@ -109,7 +109,7 @@ export function Notifications() {
 export function Points() {
   const q = useQuery(async () => api.points((await api.me()).id), []);
   return (
-    <Screen title="Баллы" back="/">
+    <Screen title="Манички" back="/">
       <Load q={q}>
         {(p) => {
           const lvl = levelOf(p.balance);
@@ -123,7 +123,7 @@ export function Points() {
                     {lvl.to ? ` · до следующего ${lvl.to - p.balance}` : ''}
                   </span>
                   <span className="t-caption muted">
-                    Баллы — не деньги и не влияют на баланс. Это прогресс за уроки и задания: уровни показывают, чему ребёнок уже научился. Обмен на награды партнёров — в разработке.
+                    Манички — баллы от банка за уроки; задания родителей тоже могут приносить Манички. Это не деньги и не влияет на баланс: уровни показывают, чему ребёнок уже научился. Обмен на награды партнёров — в разработке.
                   </span>
                 </div>
               </Card>
@@ -131,7 +131,7 @@ export function Points() {
                 {p.entries.map((e) => (
                   <Row key={e.id} icon="star" iconTone="accent" title={e.reason} subtitle={formatWhen(e.createdAt)} end={<span className="t-label">{e.delta > 0 ? `+${e.delta}` : `−${Math.abs(e.delta)}`}</span>} />
                 ))}
-                {p.entries.length === 0 && <Empty>Пока баллов нет</Empty>}
+                {p.entries.length === 0 && <Empty>Пока Маничек нет</Empty>}
               </Card>
             </>
           );

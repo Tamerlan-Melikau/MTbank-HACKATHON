@@ -69,7 +69,7 @@ describe('authorizePayment', () => {
     childId: 'c',
     ageGroup: 'junior',
     levels: defaultLevels('junior'),
-    limits: { perTransaction: null, daily: byn(40), monthly: byn(150), approvalFrom: byn(20) },
+    limits: { daily: byn(40), monthly: byn(150), approvalFrom: byn(20) },
     blockedCategories: ['games'],
     moby: 'active',
     inviteCode: null,
@@ -109,11 +109,6 @@ describe('authorizePayment', () => {
     expect(authorizePayment({ amount: byn(25), channel: 'offline', category: 'food' }, ctx())).toEqual({ outcome: 'needs_approval', code: 'ABOVE_THRESHOLD' });
     expect(authorizePayment({ amount: byn(5), channel: 'online', category: 'books' }, ctx())).toEqual({ outcome: 'needs_approval', code: 'CHANNEL_APPROVAL' });
   });
-  it('лимит на одну покупку действует только с 14 лет', () => {
-    const teen = settings({ ageGroup: 'teen', levels: defaultLevels('teen'), limits: { perTransaction: byn(30), daily: null, monthly: null, approvalFrom: null } });
-    expect(authorizePayment({ amount: byn(35), channel: 'offline', category: 'food' }, ctx({ settings: teen, spentToday: byn(0) }))).toMatchObject({ code: 'LIMIT_PER_TX' });
-    expect(authorizePayment({ amount: byn(35), channel: 'offline', category: 'food' }, ctx())).toEqual({ outcome: 'needs_approval', code: 'ABOVE_THRESHOLD' });
-  });
   it('банкомат для 7–13 недоступен по возрасту', () => {
     expect(authorizePayment({ amount: byn(5), channel: 'atm', category: null }, ctx())).toMatchObject({ code: 'CHANNEL_NOT_FOR_AGE', requestable: false });
   });
@@ -123,7 +118,7 @@ describe('authorizePayment', () => {
 });
 
 describe('levels', () => {
-  it('уровни по баллам', () => {
+  it('уровни по Маничкам', () => {
     expect(levelOf(0).level).toBe(1);
     expect(levelOf(120)).toMatchObject({ level: 2, to: 300 });
   });

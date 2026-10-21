@@ -86,9 +86,9 @@ export const CAPABILITIES: Record<CapabilityId, CapabilityDef> = {
   },
   'savings.deposit': {
     id: 'savings.deposit',
-    title: 'Накопительный счёт',
-    parentHint: 'Долгосрочный вклад на имя ребёнка',
-    childHint: 'Свой накопительный счёт',
+    title: 'МТБелки',
+    parentHint: 'Долгосрочный вклад «МТБелки» на имя ребёнка',
+    childHint: 'Свой вклад «МТБелки»',
     group: 'savings',
     rules: { junior: { ceiling: 'none', default: 'off' }, teen: { ceiling: 'approval', default: 'off' } },
     legalNote: 'С 14 лет — вклад на своё имя (ГК РБ, ст. 25). До 14 — вклад оформляет родитель на имя ребёнка вне детского доступа.',
@@ -112,12 +112,12 @@ export const CAPABILITIES: Record<CapabilityId, CapabilityDef> = {
   },
   'points.spend': {
     id: 'points.spend',
-    title: 'Трата баллов',
-    parentHint: 'Ребёнок сам обменивает свои баллы на награды',
-    childHint: 'Менять баллы на награды',
+    title: 'Трата Маничек',
+    parentHint: 'Ребёнок сам обменивает свои Манички на награды',
+    childHint: 'Менять Манички на награды',
     group: 'extras',
     rules: { junior: { ceiling: 'approval', default: 'approval' }, teen: { ceiling: 'on', default: 'on' } },
-    // UI обмена баллов ещё не реализован — возможность заложена в модель прав.
+    // UI обмена Маничек ещё не реализован — возможность заложена в модель прав.
   },
 };
 

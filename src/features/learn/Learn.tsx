@@ -1,4 +1,4 @@
-/** Уроки финграмотности для ребёнка: по возрасту, с баллами. */
+/** Уроки финграмотности для ребёнка: по возрасту, с Маничками. */
 import { useState } from 'react';
 import { api } from '@/api';
 import { useAction, useQuery } from '@/app/data';
@@ -25,7 +25,7 @@ export function Learn() {
         {({ lessons, done }) => (
           <>
             <p className="t-body muted" style={{ margin: 0 }}>
-              Проходи уроки, отвечай на вопросы и получай баллы.
+              Проходи уроки, отвечай на вопросы и получай Манички от банка.
             </p>
             <Card flush>
               {lessons.map((l) => (
@@ -34,7 +34,7 @@ export function Learn() {
                   icon={done.has(l.id) ? 'check' : 'book'}
                   iconTone={done.has(l.id) ? 'brand' : 'muted'}
                   title={l.title}
-                  subtitle={`${l.minutes} мин · ${done.has(l.id) ? 'пройдено' : `+${l.points} баллов`}`}
+                  subtitle={`${l.minutes} мин · ${done.has(l.id) ? 'пройдено' : `+${l.points} Маничек`}`}
                   to={`/learn/${l.id}`}
                   chevron
                 />
@@ -98,7 +98,7 @@ export function Lesson({ id }: { id: string }) {
             <div className="t-heading">{result.score >= 0.5 ? 'Урок пройден' : 'Попробуй ещё раз'}</div>
             <div className="t-body">
               Правильных ответов: {Math.round(result.score * lesson.quiz.length)} из {lesson.quiz.length}
-              {result.points ? `. Начислено ${result.points} баллов` : ''}
+              {result.points ? `. Начислено ${result.points} Маничек` : ''}
             </div>
             <Button variant="secondary" onClick={() => (result.score >= 0.5 ? navigate('/learn', { replace: true }) : (setResult(null), setAnswers([])))}>
               {result.score >= 0.5 ? 'К урокам' : 'Заново'}

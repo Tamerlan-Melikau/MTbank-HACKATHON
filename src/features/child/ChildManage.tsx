@@ -4,7 +4,7 @@ import { api, type ChildOverview } from '@/api';
 import { useAction, useQuery } from '@/app/data';
 import { navigate } from '@/app/router';
 import { toast } from '@/app/toast';
-import { AGE_GROUPS, CAPABILITY_LIST, formatMoney, goalsReserved, levelOf, savingsAvailable, savingsTotal } from '@/domain';
+import { AGE_GROUPS, CAPABILITY_LIST, DEPOSIT_MIN_FIRST_TOPUP, formatMoney, goalsReserved, levelOf, savingsAvailable, savingsTotal } from '@/domain';
 import { Amount, Button, ButtonRow, Card, Locked, QuickActions, Row, Screen, Section, Switch } from '@/ui/kit';
 import { Load, TxList } from '../shared';
 import { AllocationGate } from '../allocation/Allocation';
@@ -59,7 +59,7 @@ export function ChildManage({ id }: { id: string }) {
                   <Row
                     icon="piggy"
                     title="Копилок пока нет"
-                    subtitle={o.deposit ? 'Создать цель и откладывать с накопительного счёта' : 'Сначала откройте накопительный счёт'}
+                    subtitle={o.deposit ? 'Создать цель и откладывать со счёта «МТБелки»' : 'Сначала откройте счёт «МТБелки»'}
                     to={`/child/${id}/goals`}
                     chevron
                   />
@@ -102,7 +102,7 @@ export function ChildManage({ id }: { id: string }) {
 
           <Section title="Прогресс">
             <Card flush>
-              <Row icon="star" iconTone="accent" title={`Уровень ${levelOf(o.points).level}: ${levelOf(o.points).title}`} subtitle={`${o.points} баллов`} />
+              <Row icon="star" iconTone="accent" title={`Уровень ${levelOf(o.points).level}: ${levelOf(o.points).title}`} subtitle={`${o.points} Маничек`} />
               {o.settings.ageGroup !== 'junior' &&
                 o.goals.map((g) => (
                   <Row key={g.id} icon="piggy" title={g.title} subtitle={`${formatMoney(g.balance)} из ${formatMoney(g.target)}`} end={g.reachedAt ? <span className="t-label positive">Цель есть</span> : undefined} />
@@ -128,10 +128,10 @@ export function ChildManage({ id }: { id: string }) {
 function DepositBlock({ o }: { o: ChildOverview }) {
   const [open, busy] = useAction(async () => {
     await api.openDeposit(o.member.id);
-    toast('Накопительный счёт открыт');
+    toast('Счёт «МТБелки» открыт');
   });
   return (
-    <Section title="Накопительный счёт">
+    <Section title="МТБелки">
       {o.deposit ? (
         <Card flush>
           <Row
@@ -153,8 +153,11 @@ function DepositBlock({ o }: { o: ChildOverview }) {
             {o.settings.ageGroup !== 'junior' && (
               <div className="t-body muted">Можно открыть счёт сейчас или одобрить запрос подростка в разделе «Запросы».</div>
             )}
+            <div className="t-caption muted">
+              Минимум первого пополнения — {formatMoney(DEPOSIT_MIN_FIRST_TOPUP)}. Ставка и условия — допущение прототипа.
+            </div>
             <Button block variant="secondary" onClick={() => open()} disabled={busy}>
-              Создать накопительный счёт
+              Открыть счёт «МТБелки»
             </Button>
           </div>
         </Card>
@@ -304,7 +307,6 @@ function CardBlock({ o }: { o: ChildOverview }) {
           icon="limit"
           title="Лимиты"
           subtitle={[
-            o.settings.limits.perTransaction && `покупка до ${formatMoney(o.settings.limits.perTransaction)}`,
             o.settings.limits.daily && `день ${formatMoney(o.settings.limits.daily)}`,
             o.settings.limits.monthly && `месяц ${formatMoney(o.settings.limits.monthly)}`,
           ]

@@ -41,7 +41,6 @@ export type MobyAccess =
   | 'suspended'; // родитель временно закрыл доступ
 
 export interface Limits {
-  perTransaction: Money | null;
   daily: Money | null;
   monthly: Money | null;
   /** Операции от этой суммы уходят родителю на подтверждение. null — не требуется. */
@@ -117,13 +116,13 @@ export interface Account {
   createdAt: IsoDateTime;
 }
 
-/** Копилка — цель внутри накопительного счёта, а не отдельный банковский счёт. */
+/** Копилка — цель внутри счёта «МТБелки», а не отдельный банковский счёт. */
 export interface Goal {
   id: Id;
   ownerId: Id;
   depositId: Id;
   title: string;
-  /** Сколько закреплено за целью внутри остатка накопительного счёта. */
+  /** Сколько закреплено за целью внутри остатка счёта «МТБелки». */
   balance: Money;
   target: Money;
   reachedAt: IsoDateTime | null;
@@ -188,6 +187,16 @@ export interface Allowance {
   period: 'monthly';
   nextRunAt: IsoDateTime;
   active: boolean;
+}
+
+/** Добровольное страхование ребёнка. Управляет только родитель. */
+export interface InsurancePolicy {
+  id: Id;
+  childId: Id;
+  parentId: Id;
+  status: 'active' | 'cancelled';
+  createdAt: IsoDateTime;
+  cancelledAt: IsoDateTime | null;
 }
 
 /** Запрос ребёнка родителю: «доступ запрещён → запросить». */
@@ -257,7 +266,7 @@ export interface LessonProgress {
   score: number;
 }
 
-/** Баллы копятся отдельно у каждого участника семьи (требование ТЗ). */
+/** Манички копятся отдельно у каждого участника семьи (требование ТЗ). */
 export interface PointsEntry {
   id: Id;
   memberId: Id;

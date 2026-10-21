@@ -56,7 +56,7 @@ export function ChildHome() {
                 />
               )}
               {openTasks.length > 0 && (
-                <PromoBanner title="Новые задания" text={`Ждут тебя: ${openTasks.length}. За них дают баллы`} action="Открыть" onClick={() => navigate('/tasks')} />
+                <PromoBanner title="Новые задания" text={`Ждут тебя: ${openTasks.length}. За них дают Манички`} action="Открыть" onClick={() => navigate('/tasks')} />
               )}
 
               <Card flush>
@@ -64,7 +64,7 @@ export function ChildHome() {
                   icon="star"
                   iconTone="accent"
                   title={`Уровень ${lvl.level}: ${lvl.title}`}
-                  subtitle={lvl.to ? `${o.points} из ${lvl.to} баллов до следующего` : `${o.points} баллов`}
+                  subtitle={lvl.to ? `${o.points} из ${lvl.to} Маничек до следующего` : `${o.points} Маничек`}
                   to="/points"
                   chevron
                 />
@@ -87,7 +87,7 @@ export function ChildHome() {
                 {o.deposit && (
                   <Row
                     icon="piggy"
-                    title="Накопительный счёт"
+                    title="МТБелки"
                     subtitle={
                       o.goals.length > 0
                         ? `${formatMoney(savingsTotal(o.deposit))} · свободно ${formatMoney(savingsAvailable(o.deposit, o.goals))}`
@@ -97,7 +97,7 @@ export function ChildHome() {
                     chevron
                   />
                 )}
-                <Row icon="book" title="Уроки о деньгах" subtitle="Проходи и получай баллы" to="/learn" chevron />
+                <Row icon="book" title="Уроки о деньгах" subtitle="Проходи и получай Манички" to="/learn" chevron />
               </Card>
 
               <Section title="Последние операции" end={<a className="t-label" style={{ color: 'var(--brand)', padding: '12px 0' }} href="#/history">Все</a>}>

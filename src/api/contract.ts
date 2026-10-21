@@ -24,6 +24,7 @@ import type {
   Goal,
   Id,
   IncomingAllocation,
+  InsurancePolicy,
   InterestAccrual,
   InterestRule,
   Level,
@@ -99,6 +100,7 @@ export interface ChildOverview {
   card: Card | null;
   goals: Goal[];
   deposit: Account | null;
+  insurance: InsurancePolicy | null;
   spentToday: Money;
   spentMonth: Money;
   allowance: Allowance | null;
@@ -191,6 +193,8 @@ export interface BankApi {
   confirmMoby(childId: Id): Promise<void>;
   setMobySuspended(childId: Id, suspended: boolean): Promise<void>;
   topUpChild(childId: Id, amount: Money, targetAccountId?: Id): Promise<{ allocation: IncomingAllocation | null }>;
+  /** Оформление/отключение страхования ребёнка. Только родитель. */
+  setChildInsurance(childId: Id, active: boolean): Promise<void>;
   openDeposit(childId: Id): Promise<void>;
   closeDeposit(childId: Id): Promise<void>;
   /** Правило распределения процентов. Ребёнку до 14 лет недоступно. */

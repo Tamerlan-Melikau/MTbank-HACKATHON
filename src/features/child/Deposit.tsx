@@ -1,10 +1,10 @@
-/** Накопительный счёт ребёнка: информация, операции, снятие/перевод и закрытие. */
+/** Счёт «МТБелки» ребёнка: информация, операции, снятие/перевод и закрытие. */
 import { useState } from 'react';
 import { api } from '@/api';
 import { useAction, useQuery, useSession } from '@/app/data';
 import { goBack } from '@/app/router';
 import { toast } from '@/app/toast';
-import { DEPOSIT_ANNUAL_RATE_PCT, formatMoney, goalsReserved, managesInterestRule, monthlyInterest, monthlyInterestAt, parseMoney, savingsAvailable, savingsTotal, type Goal, type InterestRule } from '@/domain';
+import { DEPOSIT_ANNUAL_RATE_PCT, DEPOSIT_MIN_FIRST_TOPUP, formatMoney, goalsReserved, managesInterestRule, monthlyInterest, monthlyInterestAt, parseMoney, savingsAvailable, savingsTotal, type Goal, type InterestRule } from '@/domain';
 import { Button, Card, Checkbox, DemoNote, Empty, Field, Row, Screen, Section, Select } from '@/ui/kit';
 import { Load, TxList } from '../shared';
 
@@ -37,12 +37,12 @@ export function Deposit({ id }: { id?: string }) {
     const rest = o.deposit.balance;
     const ok = window.confirm(
       rest.minor > 0
-        ? `Закрыть накопительный счёт? Остаток ${formatMoney(rest)} вернём на текущий счёт ${o.member.firstName}.`
-        : 'Закрыть накопительный счёт?',
+        ? `Закрыть счёт «МТБелки»? Остаток ${formatMoney(rest)} вернём на текущий счёт ${o.member.firstName}.`
+        : 'Закрыть счёт «МТБелки»?',
     );
     if (!ok) return;
     await api.closeDeposit(childId);
-    toast('Накопительный счёт закрыт');
+    toast('Счёт «МТБелки» закрыт');
     goBack(`/child/${childId}`);
   });
 
@@ -68,11 +68,11 @@ export function Deposit({ id }: { id?: string }) {
   });
 
   return (
-    <Screen title="Накопительный счёт" back={back}>
+    <Screen title="МТБелки" back={back}>
       <Load q={q}>
         {(d) =>
           !d ? (
-            <Empty>Накопительный счёт не открыт</Empty>
+            <Empty>Счёт «МТБелки» не открыт</Empty>
           ) : (
             <>
               {d.o.deposit ? (
@@ -84,7 +84,7 @@ export function Deposit({ id }: { id?: string }) {
                 <>
                   <Card>
                     <div className="ui-stack ui-stack--tight">
-                      <span className="t-caption muted">Всего на накопительном счёте</span>
+                      <span className="t-caption muted">Всего на счёте «МТБелки»</span>
                       <span className="t-display ui-amount">{formatMoney(total)}</span>
                       <span className="t-caption muted">
                         {d.o.goals.length > 0
@@ -101,6 +101,7 @@ export function Deposit({ id }: { id?: string }) {
                       <Row icon="piggy" title="Тип счёта" subtitle={d.o.deposit.title} />
                       <Row icon="history" title="Открыт" subtitle={new Date(d.o.deposit.createdAt).toLocaleDateString('ru-RU')} />
                       <Row icon="star" title="Процентная ставка" subtitle={`${DEPOSIT_ANNUAL_RATE_PCT}% годовых · демо`} />
+                      <Row icon="piggy" title="Минимум первого пополнения" subtitle={formatMoney(DEPOSIT_MIN_FIRST_TOPUP)} />
                       <Row icon="piggy" title="База процентов" subtitle="Весь остаток счёта, включая суммы в копилках" />
                     </Card>
                   </Section>
@@ -121,7 +122,7 @@ export function Deposit({ id }: { id?: string }) {
                   )}
 
                   <Section title="Операции">
-                    <TxList items={d.txs} role={isParent ? 'parent' : 'child'} empty="Операций по накопительному счёту пока нет" />
+                    <TxList items={d.txs} role={isParent ? 'parent' : 'child'} empty="Операций по счёту «МТБелки» пока нет" />
                   </Section>
 
                   {!isParent && (
@@ -130,7 +131,7 @@ export function Deposit({ id }: { id?: string }) {
                         <div className="ui-stack">
                           <div className="t-body muted">
                             {d.o.settings.ageGroup === 'junior'
-                              ? 'До 14 лет снятие и перевод с накопительного счёта подтверждает родитель.'
+                              ? 'До 14 лет снятие и перевод со счёта «МТБелки» подтверждает родитель.'
                               : 'С 14 лет снятие и перевод проходят сразу.'}
                           </div>
                           <Select
@@ -174,11 +175,11 @@ export function Deposit({ id }: { id?: string }) {
                             : 'На счёте нет денег — его можно закрыть без перевода остатка.'}
                         </div>
                         {d.o.goals.length > 0 && (
-                          <div className="t-caption muted">Сначала закройте копилки — их деньги останутся на накопительном счёте.</div>
+                          <div className="t-caption muted">Сначала закройте копилки — их деньги останутся на счёте «МТБелки».</div>
                         )}
                         {isParent ? (
                           <Button block variant="danger" onClick={() => close()} disabled={closing || d.o.goals.length > 0}>
-                            {closing ? 'Закрываем…' : 'Закрыть накопительный счёт'}
+                            {closing ? 'Закрываем…' : 'Закрыть счёт «МТБелки»'}
                           </Button>
                         ) : d.o.pendingRequests.some((r) => r.payload.type === 'deposit_close') ? (
                           <Button block disabled>
@@ -196,13 +197,13 @@ export function Deposit({ id }: { id?: string }) {
                   );
                 })()
               ) : (
-                <Empty>Накопительный счёт не открыт</Empty>
+                <Empty>Счёт «МТБелки» не открыт</Empty>
               )}
             </>
           )
         }
       </Load>
-      <DemoNote>Условия и ставка — допущения прототипа, требуют согласования с банком.</DemoNote>
+      <DemoNote>Ставка, минимум первого пополнения и условия — допущения прототипа, требуют согласования с банком.</DemoNote>
     </Screen>
   );
 }

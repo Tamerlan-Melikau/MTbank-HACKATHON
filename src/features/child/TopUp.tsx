@@ -4,7 +4,7 @@ import { api } from '@/api';
 import { useAction, useQuery } from '@/app/data';
 import { goBack } from '@/app/router';
 import { toast } from '@/app/toast';
-import { formatMoney, parseMoney, byn, type IncomingAllocation } from '@/domain';
+import { DEPOSIT_MIN_FIRST_TOPUP, formatMoney, parseMoney, byn, type IncomingAllocation } from '@/domain';
 import { Button, Card, Chip, Field, Row, Screen, Section, Amount, Select } from '@/ui/kit';
 import { Load } from '../shared';
 import { AllocationSheet } from '../allocation/Allocation';
@@ -51,17 +51,23 @@ export function TopUp({ id }: { id: string }) {
       {(o) => {
         const accounts = [
           { value: 'current', label: `Основной счёт · ${formatMoney(o.account.balance)}` },
-          ...(o.deposit ? [{ value: o.deposit.id, label: `Накопительный счёт · ${formatMoney(o.deposit.balance)}` }] : []),
+          ...(o.deposit ? [{ value: o.deposit.id, label: `МТБелки · ${formatMoney(o.deposit.balance)}` }] : []),
           ...o.goals.map((g) => ({ value: g.id, label: `${g.title} · ${formatMoney(g.balance)}` })),
         ];
+        const depositTarget = !!o.deposit && (target === o.deposit.id || o.goals.some((g) => g.id === target));
+        const firstDepositFunding = depositTarget && o.deposit!.balance.minor === 0;
+        const quick = firstDepositFunding ? QUICK.filter((v) => byn(v).minor >= DEPOSIT_MIN_FIRST_TOPUP.minor) : QUICK;
         return (
         <>
         <Screen title={`Пополнить: ${o.member.firstName}`} back={`/child/${id}`}>
           <Section>
             <Select label="Куда зачислить" value={target} options={accounts} onChange={setTarget} />
             <Field label="Сумма, BYN" value={amount} onChange={setAmount} inputMode="decimal" placeholder="0,00" />
+            {firstDepositFunding && (
+              <div className="t-caption muted">Минимум первого пополнения — {formatMoney(DEPOSIT_MIN_FIRST_TOPUP)}.</div>
+            )}
             <div className="ui-chips">
-              {QUICK.map((v) => (
+              {quick.map((v) => (
                 <Chip key={v} selected={parseMoney(amount)?.minor === byn(v).minor} onClick={() => setAmount(String(v))}>
                   {formatMoney(byn(v), { hideFraction: true })}
                 </Chip>

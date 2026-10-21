@@ -29,7 +29,7 @@ export function Goals({ id }: { id?: string }) {
   const [openDeposit, openingDeposit] = useAction(async () => {
     if (!id) return;
     await api.openDeposit(id);
-    toast('Накопительный счёт открыт');
+    toast('Счёт «МТБелки» открыт');
     q.reload();
   });
 
@@ -63,7 +63,7 @@ export function Goals({ id }: { id?: string }) {
                   {o.deposit ? (
                     <>
                       <p className="t-caption muted" style={{ margin: 0 }}>
-                        Деньги на цель откладываются со свободного остатка накопительного счёта{isParent ? ' ребёнка' : ''} · свободно {formatMoney(savingsAvailable(o.deposit, o.goals))}
+                        Деньги на цель откладываются со свободного остатка счёта «МТБелки»{isParent ? ' ребёнка' : ''} · свободно {formatMoney(savingsAvailable(o.deposit, o.goals))}
                       </p>
                       <Field label="На что копишь" value={title} onChange={setTitle} placeholder="Например, самокат" />
                       <Field label="Сколько нужно, BYN" value={target} onChange={setTarget} inputMode="decimal" />
@@ -71,14 +71,14 @@ export function Goals({ id }: { id?: string }) {
                         Создать копилку
                       </Button>
                       <p className="t-caption muted" style={{ margin: 0 }}>
-                        Когда накопишь — получишь {REWARDS.goalReached} баллов.
+                        Когда накопишь — получишь {REWARDS.goalReached} Маничек.
                       </p>
                     </>
                   ) : isParent ? (
                     <Locked
-                      title="Сначала откройте накопительный счёт"
-                      text="Деньги на цели откладываются с накопительного счёта ребёнка."
-                      action={{ label: 'Открыть накопительный счёт', onClick: () => openDeposit(), disabled: openingDeposit }}
+                      title="Сначала откройте счёт «МТБелки»"
+                      text="Деньги на цели откладываются с счёта «МТБелки» ребёнка."
+                      action={{ label: 'Открыть счёт «МТБелки»', onClick: () => openDeposit(), disabled: openingDeposit }}
                     />
                   ) : (
                     (() => {
@@ -86,11 +86,11 @@ export function Goals({ id }: { id?: string }) {
                       const requested = o.pendingRequests.some((r) => r.payload.type === 'product' && r.payload.productId === 'teen-deposit');
                       return (
                         <Locked
-                          title="Сначала откройте накопительный счёт"
+                          title="Сначала откройте счёт «МТБелки»"
                           text={
                             canRequest
-                              ? 'Деньги на цели откладываются с накопительного счёта. Попросите родителя открыть его.'
-                              : 'Деньги на цели откладываются с накопительного счёта. Попросите родителя открыть его в вашем профиле.'
+                              ? 'Деньги на цели откладываются с счёта «МТБелки». Попросите родителя открыть его.'
+                              : 'Деньги на цели откладываются с счёта «МТБелки». Попросите родителя открыть его в вашем профиле.'
                           }
                           action={
                             canRequest
@@ -138,8 +138,8 @@ function GoalCard({
     const rest = formatMoney(goal.balance);
     const ok = window.confirm(
       junior
-        ? `Отправить родителю запрос на удаление копилки «${goal.title}»? Деньги (${rest}) освободятся на накопительном счёте после одобрения.`
-        : `Удалить копилку «${goal.title}»? Все деньги (${rest}) останутся на накопительном счёте.`,
+        ? `Отправить родителю запрос на удаление копилки «${goal.title}»? Деньги (${rest}) освободятся на счёте «МТБелки» после одобрения.`
+        : `Удалить копилку «${goal.title}»? Все деньги (${rest}) останутся на счёте «МТБелки».`,
     );
     if (!ok) return;
     const r = await api.deleteGoal(goal.id, childId);
@@ -147,7 +147,7 @@ function GoalCard({
       setRequested(true);
       toast('Запрос родителю отправлен');
     } else {
-      toast('Копилка закрыта, деньги остались на накопительном счёте');
+      toast('Копилка закрыта, деньги остались на счёте «МТБелки»');
     }
     onChanged();
   });
@@ -185,7 +185,7 @@ function GoalCard({
           </p>
         )}
         <p className="t-caption muted" style={{ margin: 0 }}>
-          {isParent ? 'Вы управляете копилкой ребёнка до 14 лет.' : 'Копилка — часть накопительного счёта: пополнение и вывод меняют только свободный остаток.'}
+          {isParent ? 'Вы управляете копилкой ребёнка до 14 лет.' : 'Копилка — часть счёта «МТБелки»: пополнение и вывод меняют только свободный остаток.'}
         </p>
         {junior && (
           <p className="t-caption muted" style={{ margin: 0 }}>

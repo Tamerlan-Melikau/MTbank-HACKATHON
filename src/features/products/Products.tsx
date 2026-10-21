@@ -5,7 +5,7 @@ import { useAction, useQuery } from '@/app/data';
 import { navigate } from '@/app/router';
 import { toast } from '@/app/toast';
 import { AGE_GROUPS, formatMoney, goalsReserved, PACKAGE, packageDiscountPercent, packageMonthlyPrice, PACKAGE_PRICING, PRODUCTS, savingsAvailable, savingsTotal, type ProductDef } from '@/domain';
-import { Amount, Card, Locked, Page, PromoBanner, Row, Section, TopBar } from '@/ui/kit';
+import { Amount, Button, Card, Locked, Page, PromoBanner, Row, Section, TopBar } from '@/ui/kit';
 import { Load } from '../shared';
 import type { IconName } from '@/ui/icons';
 
@@ -48,7 +48,7 @@ export function ParentProducts() {
                         return (
                           <Row
                             icon="piggy"
-                            title="Накопительный счёт"
+                            title="МТБелки"
                             subtitle={
                               o.goals.length > 0
                                 ? `Свободно ${formatMoney(savingsAvailable(o.deposit, o.goals))} · в копилках ${formatMoney(reserved)}`
@@ -71,6 +71,7 @@ export function ParentProducts() {
                           chevron
                         />
                       ))}
+                      <InsuranceRow childId={c.member.id} active={!!o.insurance} onChanged={() => q.reload()} />
                     </Card>
                   </Section>
                 );
@@ -105,6 +106,26 @@ export function ParentProducts() {
         </Load>
       </Page>
     </>
+  );
+}
+
+function InsuranceRow({ childId, active, onChanged }: { childId: string; active: boolean; onChanged: () => void }) {
+  const [toggle, busy] = useAction(async () => {
+    await api.setChildInsurance(childId, !active);
+    toast(active ? 'Страхование отключено' : 'Страхование оформлено');
+    onChanged();
+  });
+  return (
+    <Row
+      icon="shield"
+      title="Страхование ребёнка"
+      subtitle={active ? 'Оформлено · управляется родителем' : 'Не оформлено · условия — допущение'}
+      end={
+        <Button small variant={active ? 'secondary' : 'primary'} onClick={() => toggle()} disabled={busy}>
+          {busy ? 'Сохраняем…' : active ? 'Отключить' : 'Оформить'}
+        </Button>
+      }
+    />
   );
 }
 
