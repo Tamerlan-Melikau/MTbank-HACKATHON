@@ -34,6 +34,7 @@ import {
   savingsAvailable,
   minor,
   monthlyInterest,
+  monthlyInterestAt,
   presetLimits,
   sub,
   type AccessDecision,
@@ -489,30 +490,8 @@ export class MockBank implements BankApi {
       const child = this.member(st.childId);
       st.moby = 'pending_confirm';
       st.inviteCode = null;
-      this.notifyParents(child.familyId, `${child.firstName} ввёл код входа`, 'Подтвердите доступ в Moby', `/child/${child.id}`);
+      this.notifyParents(child.familyId, `${child.firstName} ввёл код`, 'Подтвердите доступ в Moby в профиле ребёнка', `/child/${child.id}`);
       return { childId: child.id, firstName: child.firstName };
-    });
-  }
-
-  async requestMobyAccess(childId: Id) {
-    await this.write(() => {
-      const child = this.member(childId);
-      const st = this.settings(childId);
-      if (st.moby === 'active') return;
-      const dup = this.db.requests.some((r) => r.childId === childId && r.status === 'pending' && r.payload.type === 'moby-access');
-      if (dup) return;
-      this.db.requests.push({
-        id: nextId(this.db, 'req'),
-        familyId: child.familyId,
-        childId,
-        payload: { type: 'moby-access' },
-        comment: '',
-        status: 'pending',
-        createdAt: this.iso(),
-        resolvedAt: null,
-        resolvedBy: null,
-      });
-      this.notifyParents(child.familyId, `${child.firstName} просит доступ в Moby`, 'Откройте запросы, чтобы ответить', '/requests');
     });
   }
 
@@ -642,6 +621,10 @@ export class MockBank implements BankApi {
 
   // ---------------------------------------------------------------- родитель
 
+  private newInviteCode(): string {
+    return String(100000 + Math.floor(Math.random() * 900000));
+  }
+
   async enroll(input: EnrollInput) {
     return this.write((db) => {
       const s = this.requireParent();
@@ -662,17 +645,18 @@ export class MockBank implements BankApi {
       const acc: Account = { id: nextId(db, 'acc'), ownerId: childId, kind: 'current', title: group === 'junior' ? 'Карманные' : 'Мой счёт', balance: ZERO, status: 'active', createdAt: this.iso() };
       db.accounts.push(acc);
       db.cards.push({ id: nextId(db, 'card'), accountId: acc.id, holderId: childId, form: input.cardForm, last4: String(1000 + (db.seq * 7919) % 9000), status: 'active', blockedByAccount: false, replacedBy: null });
+      const inviteCode = this.newInviteCode();
       db.childSettings.push({
         childId,
         ageGroup: group,
         levels: defaultLevels(group),
         limits: presetLimits(group),
         blockedCategories: group === 'junior' ? ['games', 'subscriptions'] : [],
-        moby: 'none',
-        inviteCode: null,
+        moby: 'invited',
+        inviteCode,
         notifyParentOnEveryOperation: group === 'junior',
       });
-      return { childId };
+      return { childId, inviteCode };
     });
   }
 
@@ -687,6 +671,9 @@ export class MockBank implements BankApi {
       db.accounts = db.accounts.filter((a) => a.ownerId !== childId);
       db.cards = db.cards.filter((c) => c.holderId !== childId && !accountIds.has(c.accountId));
       db.transactions = db.transactions.filter((t) => t.memberId !== childId && !accountIds.has(t.accountId));
+      db.goals = db.goals.filter((g) => g.ownerId !== childId);
+      db.interestRules = db.interestRules.filter((r) => r.childId !== childId);
+      db.parentInterestRates = db.parentInterestRates.filter((r) => r.childId !== childId);
       db.allowances = db.allowances.filter((a) => a.childId !== childId);
       db.allocations = db.allocations.filter((a) => a.childId !== childId);
       db.requests = db.requests.filter((r) => r.childId !== childId);
@@ -815,18 +802,19 @@ export class MockBank implements BankApi {
       this.requireParentOf(childId);
       const st = this.settings(childId);
       if (st.moby === 'active') throw new ApiError('CONFLICT', 'Доступ уже выдан');
+      if (st.moby === 'pending_confirm') throw new ApiError('CONFLICT', 'Код уже введён — подтвердите доступ');
       st.moby = 'invited';
-      st.inviteCode = String(100000 + Math.floor(Math.random() * 900000));
+      st.inviteCode = this.newInviteCode();
       return { code: st.inviteCode };
     });
   }
 
   async confirmMoby(childId: Id) {
-    await this.write((db) => {
+    await this.write(() => {
       const { session } = this.requireParentOf(childId);
       const st = this.settings(childId);
-      if (st.moby !== 'pending_confirm' && st.moby !== 'none' && st.moby !== 'invited') throw new ApiError('CONFLICT', 'Нечего подтверждать');
-      this.activateMoby(db, session.memberId, childId);
+      if (st.moby !== 'pending_confirm') throw new ApiError('CONFLICT', 'Нет запроса на подтверждение доступа');
+      this.activateMoby(this.db, session.memberId, childId);
     });
   }
 
@@ -834,7 +822,9 @@ export class MockBank implements BankApi {
     const st = this.settings(childId);
     st.moby = 'active';
     st.inviteCode = null;
-    db.consents.push({ id: nextId(db, 'cns'), parentId, childId, type: 'child-moby-access', givenAt: this.iso(), revokedAt: null });
+    if (!db.consents.some((c) => c.childId === childId && c.type === 'child-moby-access' && !c.revokedAt)) {
+      db.consents.push({ id: nextId(db, 'cns'), parentId, childId, type: 'child-moby-access', givenAt: this.iso(), revokedAt: null });
+    }
     this.notify(childId, 'Доступ открыт', 'Теперь ты можешь входить в Moby');
   }
 
@@ -952,6 +942,52 @@ export class MockBank implements BankApi {
       const toFree = sub(interest, toGoals);
       this.notify(childId, 'Начислены проценты', actor.parent ? `Родитель начислил ${formatMoney(interest)}` : `Начислено ${formatMoney(interest)}`, '/deposit');
       return { interest, toGoals, toFree };
+    });
+  }
+
+  async parentInterestRate(childId: Id): Promise<number> {
+    return this.read(() => {
+      const { session } = this.requireParentOf(childId);
+      return this.db.parentInterestRates.find((r) => r.childId === childId && r.parentId === session.memberId)?.percent ?? 0;
+    });
+  }
+
+  async setParentInterestRate(childId: Id, percent: number) {
+    await this.write((db) => {
+      const { session } = this.requireParentOf(childId);
+      if (!db.accounts.some((a) => a.ownerId === childId && a.kind === 'deposit')) throw new ApiError('NOT_FOUND', 'Накопительный счёт не открыт');
+      if (!Number.isFinite(percent) || percent < 0 || percent > 100) throw new ApiError('VALIDATION', 'Ставка должна быть от 0 до 100');
+      const value = Math.round(percent);
+      const record = db.parentInterestRates.find((r) => r.childId === childId && r.parentId === session.memberId);
+      if (record) record.percent = value;
+      else db.parentInterestRates.push({ childId, parentId: session.memberId, percent: value });
+    });
+  }
+
+  /** Родитель платит ребёнку процент от всего остатка накопительного счёта. */
+  async accrueParentInterest(childId: Id): Promise<Money> {
+    return this.write((db) => {
+      const { session } = this.requireParentOf(childId);
+      const deposit = db.accounts.find((a) => a.ownerId === childId && a.kind === 'deposit');
+      if (!deposit) throw new ApiError('NOT_FOUND', 'Накопительный счёт не открыт');
+      const record = db.parentInterestRates.find((r) => r.childId === childId && r.parentId === session.memberId);
+      if (!record || record.percent <= 0) return ZERO;
+      const interest = monthlyInterestAt(deposit.balance, record.percent);
+      if (interest.minor <= 0) return ZERO;
+      const payer = db.accounts.find((a) => a.ownerId === session.memberId && a.kind === 'current');
+      if (!payer) throw new ApiError('NOT_FOUND', 'Ваш счёт не найден');
+      if (gt(interest, payer.balance)) throw new ApiError('VALIDATION', 'На вашем счёте недостаточно средств для начисления процентов');
+      const parent = this.member(session.memberId);
+      const child = this.member(childId);
+      this.transfer(
+        payer,
+        deposit,
+        interest,
+        { out: `Проценты для ${child.firstName}`, in: `Проценты от ${parent.firstName}` },
+        { out: 'transfer_out', in: 'interest' },
+      );
+      this.notify(childId, 'Проценты от родителя', `${formatMoney(interest, { sign: 'always' })} от ${parent.firstName}`, '/deposit');
+      return interest;
     });
   }
 
@@ -1272,7 +1308,7 @@ export class MockBank implements BankApi {
     });
   }
 
-  /** Перевод: до 14 лет — только родителям и братьям/сёстрам и с одобрением родителя. */
+  /** Перевод: до 14 лет — любому получателю, но только с одобрения родителя. */
   async transferMoney(input: TransferInput): Promise<TransferResult> {
     return this.write((db) => {
       const s = this.requireChild();
@@ -1291,7 +1327,6 @@ export class MockBank implements BankApi {
         target = this.member(input.recipientId);
         if (target.id === child.id || target.familyId !== child.familyId) throw new ApiError('FORBIDDEN', 'Можно переводить только членам своей семьи');
       }
-      if (junior && !target) throw new ApiError('POLICY_DENIED', 'До 14 лет можно переводить только родителям и братьям или сёстрам');
       const recipient = target ? `${target.firstName} ${target.lastName}`.trim() : input.recipient.trim();
       if (!recipient) throw new ApiError('VALIDATION', 'Укажи получателя');
 

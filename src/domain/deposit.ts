@@ -5,9 +5,14 @@ import type { Account, Goal } from './types';
 /** Ставка прототипа: 10% годовых. В боевом продукте приходит из тарифов банка. */
 export const DEPOSIT_ANNUAL_RATE_PCT = 10;
 
-/** Проценты за месяц от полного остатка (простые, без капитализации внутри месяца). */
+/** Проценты за месяц по заданной годовой ставке (простые, без капитализации). */
+export function monthlyInterestAt(balance: Money, annualPercent: number): Money {
+  return minor(Math.round((balance.minor * annualPercent) / 100 / 12));
+}
+
+/** Проценты банка за месяц от полного остатка. */
 export function monthlyInterest(balance: Money): Money {
-  return minor(Math.round((balance.minor * DEPOSIT_ANNUAL_RATE_PCT) / 100 / 12));
+  return monthlyInterestAt(balance, DEPOSIT_ANNUAL_RATE_PCT);
 }
 
 /** Сколько денег закреплено за копилками. */

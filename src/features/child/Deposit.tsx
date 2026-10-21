@@ -4,7 +4,7 @@ import { api } from '@/api';
 import { useAction, useQuery, useSession } from '@/app/data';
 import { goBack } from '@/app/router';
 import { toast } from '@/app/toast';
-import { DEPOSIT_ANNUAL_RATE_PCT, formatMoney, goalsReserved, monthlyInterest, parseMoney, savingsAvailable, savingsTotal, type Goal, type InterestRule } from '@/domain';
+import { DEPOSIT_ANNUAL_RATE_PCT, formatMoney, goalsReserved, monthlyInterest, monthlyInterestAt, parseMoney, savingsAvailable, savingsTotal, type Goal, type InterestRule } from '@/domain';
 import { Button, Card, Checkbox, DemoNote, Empty, Field, Row, Screen, Section, Select } from '@/ui/kit';
 import { Load, TxList } from '../shared';
 
@@ -24,8 +24,11 @@ export function Deposit({ id }: { id?: string }) {
     ]);
     const all = o.deposit ? await api.transactions(childId) : [];
     const canManageInterest = !!o.deposit && (isParent ? o.settings.ageGroup === 'junior' : o.settings.ageGroup === 'teen');
-    const rule = canManageInterest ? await api.interestRule(childId) : null;
-    return { o, recipients, txs: o.deposit ? all.filter((t) => t.accountId === o.deposit!.id) : [], canManageInterest, rule };
+    const [rule, parentRate] = await Promise.all([
+      canManageInterest ? api.interestRule(childId) : Promise.resolve(null),
+      isParent ? api.parentInterestRate(childId) : Promise.resolve(0),
+    ]);
+    return { o, recipients, txs: o.deposit ? all.filter((t) => t.accountId === o.deposit!.id) : [], canManageInterest, rule, parentRate };
   }, [childId, isParent]);
 
   const [close, closing] = useAction(async () => {
@@ -111,6 +114,10 @@ export function Deposit({ id }: { id?: string }) {
                       parent={isParent}
                       onChanged={() => q.reload()}
                     />
+                  )}
+
+                  {isParent && (
+                    <ParentInterestSettings childId={childId} total={total} rate={d.parentRate} onChanged={() => q.reload()} />
                   )}
 
                   <Section title="Операции">
@@ -201,6 +208,63 @@ export function Deposit({ id }: { id?: string }) {
 }
 
 
+function ParentInterestSettings({
+  childId,
+  total,
+  rate,
+  onChanged,
+}: {
+  childId: string;
+  total: ReturnType<typeof savingsTotal>;
+  rate: number;
+  onChanged: () => void;
+}) {
+  const [percent, setPercent] = useState(String(rate));
+  const n = Number(percent.replace(',', '.'));
+  const valid = Number.isFinite(n) && n >= 0 && n <= 100;
+
+  const [save, saving] = useAction(async () => {
+    if (!valid) throw new Error('Введите ставку от 0 до 100');
+    await api.setParentInterestRate(childId, Math.round(n));
+    toast('Ставка от родителя сохранена');
+    onChanged();
+  });
+
+  const [accrue, accruing] = useAction(async () => {
+    const amount = await api.accrueParentInterest(childId);
+    toast(amount.minor > 0 ? `Начислено ${formatMoney(amount)} от вас` : 'Ставка не задана — начислять нечего');
+    onChanged();
+  });
+
+  return (
+    <Section title="Проценты от родителя">
+      <Card>
+        <div className="ui-stack">
+          <div className="t-body muted">
+            Дополнительный процент от себя на весь остаток счёта — {formatMoney(total)}. Деньги списываются с вашего основного счёта.
+          </div>
+          <Field
+            label="Ваша ставка, % годовых"
+            value={percent}
+            onChange={setPercent}
+            inputMode="decimal"
+            hint="0 — не начислять проценты от родителя"
+          />
+          <span className="t-caption muted">
+            {valid ? `За месяц примерно ${formatMoney(monthlyInterestAt(total, n))}` : 'Введите ставку от 0 до 100'}
+          </span>
+          <Button block onClick={() => save()} disabled={saving}>
+            Сохранить ставку
+          </Button>
+          <Button block variant="secondary" onClick={() => accrue()} disabled={accruing}>
+            Начислить проценты от родителя (демо)
+          </Button>
+        </div>
+      </Card>
+    </Section>
+  );
+}
+
 function InterestSettings({
   childId,
   rule,
@@ -241,7 +305,7 @@ function InterestSettings({
     setSelected((prev) => (on ? [...new Set([...prev, id])] : prev.filter((x) => x !== id)));
 
   return (
-    <Section title="Проценты">
+    <Section title="Проценты банка">
       <Card>
         <div className="ui-stack">
           <div className="t-body muted">

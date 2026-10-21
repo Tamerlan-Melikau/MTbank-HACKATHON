@@ -9,7 +9,7 @@ import { AllocationGate } from '../allocation/Allocation';
 const MOBY_STATUS = {
   none: 'Нет доступа в Moby',
   invited: 'Код выдан, ждём входа',
-  pending_confirm: 'Подтвердите вход в Moby',
+  pending_confirm: 'Ждёт вашего подтверждения',
   active: 'Есть доступ в Moby',
   suspended: 'Доступ приостановлен',
 } as const;

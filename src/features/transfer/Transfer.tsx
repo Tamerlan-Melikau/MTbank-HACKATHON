@@ -5,26 +5,25 @@ import { useAction, useQuery } from '@/app/data';
 import { navigate } from '@/app/router';
 import { toast } from '@/app/toast';
 import { formatMoney, parseMoney } from '@/domain';
-import { Button, Card, DemoNote, Field, Locked, Screen, Section, Select } from '@/ui/kit';
+import { Button, Card, DemoNote, Field, Locked, Screen, Section } from '@/ui/kit';
 import { Load } from '../shared';
 
 export function Transfer() {
   const q = useQuery(async () => {
     const me = await api.me();
-    const [o, recipients] = await Promise.all([api.childOverview(me.id), api.transferRecipients()]);
-    return { o, recipients };
+    const o = await api.childOverview(me.id);
+    return { o };
   }, []);
   const [recipient, setRecipient] = useState('');
-  const [recipientId, setRecipientId] = useState('');
   const [amount, setAmount] = useState('');
   const [comment, setComment] = useState('');
   const [result, setResult] = useState<TransferResult | null>(null);
 
-  const [send, sending] = useAction(async (receiver: { title: string; memberId?: string }) => {
+  const [send, sending] = useAction(async () => {
     const m = parseMoney(amount);
-    if (!receiver.title.trim()) throw new Error('Укажи получателя');
+    if (!recipient.trim()) throw new Error('Укажи получателя');
     if (!m || m.minor <= 0) throw new Error('Введи сумму');
-    const r = await api.transferMoney({ amount: m, recipient: receiver.title.trim(), recipientId: receiver.memberId, comment });
+    const r = await api.transferMoney({ amount: m, recipient: recipient.trim(), comment });
     setResult(r);
     setAmount('');
     setComment('');
@@ -34,16 +33,13 @@ export function Transfer() {
   return (
     <Screen title="Перевести деньги" back="/">
       <DemoNote>
-        До 14 лет можно переводить только родителям и братьям или сёстрам, а перевод подтверждает родитель. С 14 лет перевод проходит
-        сразу в рамках прав и лимитов.
+        До 14 лет можно переводить любому получателю, но каждый перевод подтверждает родитель. С 14 лет перевод проходит сразу
+        в рамках прав и лимитов.
       </DemoNote>
 
       <Load q={q}>
-        {({ o, recipients }) => {
+        {({ o }) => {
           const canSend = o.settings.ageGroup === 'junior' || o.access['transfer.p2p'].kind !== 'denied';
-          const junior = o.settings.ageGroup === 'junior';
-          const selectedId = recipientId || recipients[0]?.memberId || '';
-          const selected = recipients.find((r) => r.memberId === selectedId);
           return (
             <>
               <Card>
@@ -61,29 +57,10 @@ export function Transfer() {
                 />
               ) : (
                 <Section>
-                  {junior ? (
-                    <Select
-                      label="Получатель"
-                      value={selectedId}
-                      onChange={setRecipientId}
-                      options={recipients.map((r) => ({ value: r.memberId, label: `${r.title} — ${r.subtitle}` }))}
-                    />
-                  ) : (
-                    <Field label="Получатель" value={recipient} onChange={setRecipient} placeholder="Имя или номер телефона" />
-                  )}
+                  <Field label="Получатель" value={recipient} onChange={setRecipient} placeholder="Имя или номер телефона" />
                   <Field label="Сумма, BYN" value={amount} onChange={setAmount} inputMode="decimal" placeholder="0,00" />
                   <Field label="Комментарий" value={comment} onChange={setComment} placeholder="Необязательно" />
-                  <Button
-                    block
-                    onClick={() => {
-                      if (junior && !selected) {
-                        toast('Нет доступных получателей', 'error');
-                        return;
-                      }
-                      send(junior ? { title: selected!.title, memberId: selected!.memberId } : { title: recipient });
-                    }}
-                    disabled={sending}
-                  >
+                  <Button block onClick={() => send()} disabled={sending}>
                     Перевести
                   </Button>
                 </Section>

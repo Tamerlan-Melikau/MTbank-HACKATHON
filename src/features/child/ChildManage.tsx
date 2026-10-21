@@ -199,10 +199,7 @@ function MobyAccessBlock({ o }: { o: ChildOverview }) {
     const r = await api.inviteToMoby(id);
     setCode(r.code);
   });
-  const [confirm, confirming] = useAction(async () => {
-    await api.confirmMoby(id);
-    toast('Доступ в Moby открыт');
-  });
+  const [confirmAccess, confirming] = useAction(() => api.confirmMoby(id));
   const [suspend, suspending] = useAction((v: boolean) => api.setMobySuspended(id, v));
   const name = o.member.firstName;
 
@@ -212,7 +209,7 @@ function MobyAccessBlock({ o }: { o: ChildOverview }) {
       body = (
         <Locked
           title="Нет доступа в Moby"
-          text={`${name} не может входить в приложение. Выдайте код: ${name} введёт его на своём телефоне, а вы подтвердите вход.`}
+          text={`${name} не может входить в приложение. Выдайте одноразовый код: ${name} введёт его на своём телефоне.`}
           action={{ label: 'Выдать код', onClick: () => invite(), disabled: inviting }}
         />
       );
@@ -221,9 +218,9 @@ function MobyAccessBlock({ o }: { o: ChildOverview }) {
       body = (
         <Card>
           <div className="ui-stack">
-            <span className="t-body">Код для входа ребёнка</span>
+            <span className="t-body">Одноразовый код для подключения</span>
             <span className="t-display ui-amount" style={{ letterSpacing: 4 }}>{code ?? o.settings.inviteCode}</span>
-            <span className="t-caption muted">Ребёнок вводит код на экране входа: «Войти по коду от родителя».</span>
+            <span className="t-caption muted">Ребёнок вводит код на экране входа в разделе «Подключиться к родителю по коду». После первого ввода код исчезнет.</span>
           </div>
         </Card>
       );
@@ -232,9 +229,11 @@ function MobyAccessBlock({ o }: { o: ChildOverview }) {
       body = (
         <Card>
           <div className="ui-stack">
-            <span className="t-heading">{name} ввёл код</span>
-            <span className="t-body muted">Подтверждая, вы даёте согласие на личный доступ ребёнка в Moby и обработку его данных в приложении.</span>
-            <Button block onClick={() => confirm()} disabled={confirming}>
+            <span className="t-heading">Код введён</span>
+            <span className="t-body">
+              {name} ждёт вашего подтверждения. После него ребёнок сможет войти в Moby и пользоваться доступными продуктами.
+            </span>
+            <Button block onClick={() => confirmAccess()} disabled={confirming}>
               Подтвердить доступ
             </Button>
           </div>

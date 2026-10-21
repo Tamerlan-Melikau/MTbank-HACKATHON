@@ -37,6 +37,7 @@ export function Enroll() {
   const [cardForm, setCardForm] = useState<CardForm>('digital');
   const [consents, setConsents] = useState<ConsentType[]>([]);
   const [childId, setChildId] = useState<string | null>(null);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
   const familyQ = useQuery(() => api.familyView(), []);
   const childrenAfter = (familyQ.data?.children.length ?? 0) + 1;
   const discount = packageDiscountPercent(childrenAfter);
@@ -48,6 +49,7 @@ export function Enroll() {
   const [submit, busy] = useAction(async () => {
     const r = await api.enroll({ child, cardForm, consents });
     setChildId(r.childId);
+    setInviteCode(r.inviteCode);
     setStep('done');
   });
 
@@ -157,11 +159,19 @@ export function Enroll() {
           <Card>
             <div className="ui-stack">
               <div className="t-heading">Карта для ребёнка «{child.firstName}» выпущена</div>
-              <div className="t-body muted">Осталось открыть ребёнку вход в Moby и проверить ограничения.</div>
+              <div className="t-body muted">Осталось подключить его к вашему профилю.</div>
+            </div>
+          </Card>
+          <Card>
+            <div className="ui-stack">
+              <span className="t-body">Одноразовый код для подключения</span>
+              <span className="t-display ui-amount" style={{ letterSpacing: 6 }}>{inviteCode}</span>
+              <span className="t-caption muted">
+                {child.firstName} вводит код на экране входа в разделе «Подключиться к родителю по коду». После ввода код исчезнет, а доступ нужно будет подтвердить в профиле ребёнка.
+              </span>
             </div>
           </Card>
           <Card flush>
-            <Row icon="key" title="Открыть доступ в Moby" subtitle="Выдать код для входа" to={`/child/${childId}`} chevron />
             <Row icon="shield" title="Проверить права" subtitle="Платежи, накопления, категории" to={`/child/${childId}/permissions`} chevron />
             <Row icon="topup" title="Настроить карманные" to={`/child/${childId}/allowance`} chevron />
           </Card>

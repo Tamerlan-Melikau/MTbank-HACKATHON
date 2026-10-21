@@ -162,9 +162,6 @@ export interface BankApi {
   session(): Session | null;
   /** Ребёнок вводит код приглашения от родителя. Не требует сессии. */
   redeemInvite(code: string): Promise<{ childId: Id; firstName: string }>;
-  /** Ребёнок без доступа просит родителя. Не требует сессии (в бою — по номеру телефона). */
-  requestMobyAccess(childId: Id): Promise<void>;
-
   // --- Чтение ---
   me(): Promise<Member>;
   familyView(): Promise<FamilyView>;
@@ -179,7 +176,7 @@ export interface BankApi {
   notifications(): Promise<Notification[]>;
 
   // --- Родитель ---
-  enroll(input: EnrollInput): Promise<{ childId: Id }>;
+  enroll(input: EnrollInput): Promise<{ childId: Id; inviteCode: string }>;
   /** Удаляет профиль ребёнка и все связанные данные без возможности восстановления. */
   deleteChild(childId: Id): Promise<void>;
   setCapability(childId: Id, id: CapabilityId, level: Level): Promise<void>;
@@ -190,6 +187,7 @@ export interface BankApi {
   setAccountBlocked(accountId: Id, blocked: boolean): Promise<void>;
   reportCardLost(cardId: Id): Promise<{ newCardId: Id }>;
   inviteToMoby(childId: Id): Promise<{ code: string }>;
+  /** Подтверждение доступа ребёнка в Moby после ввода одноразового кода. */
   confirmMoby(childId: Id): Promise<void>;
   setMobySuspended(childId: Id, suspended: boolean): Promise<void>;
   topUpChild(childId: Id, amount: Money, targetAccountId?: Id): Promise<{ allocation: IncomingAllocation | null }>;
@@ -200,6 +198,11 @@ export interface BankApi {
   setInterestRule(childId: Id, rule: InterestRule): Promise<void>;
   /** Демо-начисление процентов на весь остаток счёта. */
   accrueInterest(childId: Id): Promise<InterestAccrual>;
+  /** Ставка, которую текущий родитель дополнительно платит ребёнку. */
+  parentInterestRate(childId: Id): Promise<number>;
+  setParentInterestRate(childId: Id, percent: number): Promise<void>;
+  /** Демо-начисление процентов от родителя с его основного счёта. */
+  accrueParentInterest(childId: Id): Promise<Money>;
   moveDeposit(input: DepositMoveInput): Promise<{ requestId: Id | null }>;
   setAllowance(childId: Id, value: { amount: Money } | null): Promise<void>;
   resolveRequest(requestId: Id, approve: boolean): Promise<void>;

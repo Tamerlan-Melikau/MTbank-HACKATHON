@@ -55,6 +55,7 @@ export function seed(now: Date): Db {
     { childId: misha.id, percent: 20, goalIds: [bike.id] },
     { childId: katya.id, percent: 0, goalIds: [] },
   );
+  db.parentInterestRates.push({ childId: misha.id, parentId: mom.id, percent: 5 });
 
   const card = (accountId: string, holderId: string, last4: string, form: Card['form']) =>
     db.cards.push({ id: nextId(db, 'card'), accountId, holderId, form, last4, status: 'active', blockedByAccount: false, replacedBy: null });

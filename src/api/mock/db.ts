@@ -16,12 +16,13 @@ import type {
   LessonProgress,
   Member,
   Notification,
+  ParentInterestRateRecord,
   PointsEntry,
   Task,
   Transaction,
 } from '@/domain';
 
-export const DB_VERSION = 9;
+export const DB_VERSION = 11;
 
 export interface Db {
   version: number;
@@ -33,6 +34,7 @@ export interface Db {
   accounts: Account[];
   goals: Goal[];
   interestRules: InterestRuleRecord[];
+  parentInterestRates: ParentInterestRateRecord[];
   cards: Card[];
   transactions: Transaction[];
   allowances: Allowance[];
@@ -55,6 +57,7 @@ export function emptyDb(): Db {
     accounts: [],
     goals: [],
     interestRules: [],
+    parentInterestRates: [],
     cards: [],
     transactions: [],
     allowances: [],

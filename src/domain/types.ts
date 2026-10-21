@@ -36,7 +36,7 @@ export type PackageId = 'family-start';
 export type MobyAccess =
   | 'none' // не выдан
   | 'invited' // родитель выдал код, ребёнок ещё не вошёл
-  | 'pending_confirm' // ребёнок ввёл код, ждём подтверждения родителя в приложении
+  | 'pending_confirm' // ребёнок ввёл код, ждём подтверждения родителя
   | 'active'
   | 'suspended'; // родитель временно закрыл доступ
 
@@ -90,6 +90,14 @@ export interface InterestRule {
 
 export interface InterestRuleRecord extends InterestRule {
   childId: Id;
+}
+
+/** Дополнительная ставка, которую родитель начисляет ребёнку со своего счёта. */
+export interface ParentInterestRateRecord {
+  childId: Id;
+  parentId: Id;
+  /** 0–100 годовых. */
+  percent: number;
 }
 
 export interface InterestAccrual {

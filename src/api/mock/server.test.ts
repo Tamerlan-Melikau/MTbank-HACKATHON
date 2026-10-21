@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byn, monthlyInterest, type Id } from '@/domain';
+import { byn, monthlyInterest, monthlyInterestAt, type Id } from '@/domain';
 import { MockBank } from './server';
 import { memoryStorage } from './storage';
 import { seed } from './seed';
@@ -95,17 +95,25 @@ describe('MockBank', () => {
     await expect(bank.resolveRequest(requestId, true)).rejects.toMatchObject({ code: 'CONFLICT' });
   });
 
-  it('оформление пакета → приглашение → подтверждение входа', async () => {
+  it('оформление выдаёт код, вход открывается только после подтверждения родителя', async () => {
     const bank = make();
     await bank.signIn('m_anna');
     await expect(bank.enroll({ child: { firstName: 'Оля', lastName: 'Иванова', birthDate: '2017-03-01' }, cardForm: 'digital', consents: ['package-offer'] })).rejects.toMatchObject({ code: 'VALIDATION' });
-    const { childId } = await bank.enroll({ child: { firstName: 'Оля', lastName: 'Иванова', birthDate: '2017-03-01' }, cardForm: 'digital', consents: ['package-offer', 'child-card', 'child-pd'] });
+    const { childId, inviteCode } = await bank.enroll({ child: { firstName: 'Оля', lastName: 'Иванова', birthDate: '2017-03-01' }, cardForm: 'digital', consents: ['package-offer', 'child-card', 'child-pd'] });
+    expect(inviteCode).toMatch(/^\d{6}$/);
+    expect((await bank.childOverview(childId)).settings).toMatchObject({ moby: 'invited', inviteCode });
     await expect(bank.signIn(childId)).rejects.toMatchObject({ code: 'NO_MOBY_ACCESS' });
-    const { code } = await bank.inviteToMoby(childId);
-    await bank.redeemInvite(code);
+
+    await bank.redeemInvite(inviteCode);
+    await expect(bank.redeemInvite(inviteCode)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect((await bank.childOverview(childId)).settings).toMatchObject({ moby: 'pending_confirm', inviteCode: null });
     await expect(bank.signIn(childId)).rejects.toMatchObject({ code: 'NO_MOBY_ACCESS' });
+
+    await bank.signIn('m_misha');
+    await expect(bank.confirmMoby(childId)).rejects.toMatchObject({ code: 'FORBIDDEN' });
     await bank.signIn('m_anna');
     await bank.confirmMoby(childId);
+    expect((await bank.childOverview(childId)).settings).toMatchObject({ moby: 'active', inviteCode: null });
     await expect(bank.signIn(childId)).resolves.toMatchObject({ role: 'child' });
   });
 
@@ -313,6 +321,41 @@ describe('MockBank', () => {
     await expect(bank.accrueInterest('m_katya')).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
+  it('родитель начисляет ребёнку процент от себя с основного счёта', async () => {
+    const bank = make();
+    await bank.signIn('m_anna');
+    const before = await bank.childOverview('m_misha');
+    const parentBefore = (await bank.accounts('m_anna')).find((a) => a.kind === 'current')!.balance.minor;
+
+    await bank.setParentInterestRate('m_misha', 12);
+    expect(await bank.parentInterestRate('m_misha')).toBe(12);
+    const expected = monthlyInterestAt(before.deposit!.balance, 12);
+    expect(await bank.accrueParentInterest('m_misha')).toMatchObject({ minor: expected.minor });
+
+    const after = await bank.childOverview('m_misha');
+    expect(after.deposit!.balance.minor).toBe(before.deposit!.balance.minor + expected.minor);
+    expect(after.goals[0]!.balance.minor).toBe(before.goals[0]!.balance.minor);
+    expect((await bank.accounts('m_anna')).find((a) => a.kind === 'current')!.balance.minor).toBe(parentBefore - expected.minor);
+  });
+
+  it('родитель задаёт свой процент подростку, но подросток не меняет ставку родителя', async () => {
+    const bank = make();
+    await bank.signIn('m_anna');
+    await bank.openDeposit('m_katya');
+    const deposit = (await bank.childOverview('m_katya')).deposit!;
+    await bank.topUpChild('m_katya', byn(1200), deposit.id);
+    await bank.setParentInterestRate('m_katya', 6);
+    const before = (await bank.childOverview('m_katya')).deposit!.balance;
+    const expected = monthlyInterestAt(before, 6);
+    expect(await bank.accrueParentInterest('m_katya')).toMatchObject({ minor: expected.minor });
+    expect((await bank.childOverview('m_katya')).deposit!.balance.minor).toBe(before.minor + expected.minor);
+
+    await bank.signIn('m_katya');
+    await expect(bank.parentInterestRate('m_katya')).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(bank.setParentInterestRate('m_katya', 50)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(bank.accrueParentInterest('m_katya')).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+
   it('без накопительного счёта копилку создать нельзя', async () => {
     const bank = make();
     await bank.signIn('m_katya');
@@ -497,7 +540,7 @@ describe('MockBank', () => {
     expect((await bank.childOverview('m_katya')).deposit).toBeNull();
   });
 
-  it('ребёнок до 14 переводит только родителям и братьям/сёстрам через запрос', async () => {
+  it('ребёнок до 14 переводит членам семьи через запрос', async () => {
     const bank = make();
     await bank.signIn('m_misha');
     const recipients = await bank.transferRecipients();
@@ -505,7 +548,6 @@ describe('MockBank', () => {
     expect(recipients.some((r) => r.memberId === 'm_misha')).toBe(false);
 
     const before = (await bank.childOverview('m_misha')).account.balance.minor;
-    await expect(bank.transferMoney({ amount: byn(10), recipient: 'Друг Олег' })).rejects.toMatchObject({ code: 'POLICY_DENIED' });
     const r = await bank.transferMoney({ amount: byn(10), recipient: 'Катя Иванова', recipientId: 'm_katya', comment: 'На кино' });
     expect(r.requestId).not.toBeNull();
     expect(r.transaction).toBeNull();
@@ -523,6 +565,22 @@ describe('MockBank', () => {
 
     await bank.signIn('m_katya');
     expect((await bank.transactions('m_katya'))[0]).toMatchObject({ kind: 'transfer_in', amount: { minor: 1000 }, title: 'Перевод от Миша' });
+  });
+
+  it('ребёнок до 14 переводит любому получателю только после одобрения родителя', async () => {
+    const bank = make();
+    await bank.signIn('m_misha');
+    const before = (await bank.childOverview('m_misha')).account.balance.minor;
+    const r = await bank.transferMoney({ amount: byn(15), recipient: 'Друг Олег', comment: 'На подарок' });
+    expect(r.requestId).not.toBeNull();
+    expect(r.transaction).toBeNull();
+    expect((await bank.childOverview('m_misha')).account.balance.minor).toBe(before);
+
+    await bank.signIn('m_anna');
+    await bank.resolveRequest(r.requestId as Id, true);
+    await bank.signIn('m_misha');
+    expect((await bank.childOverview('m_misha')).account.balance.minor).toBe(before - 1500);
+    expect((await bank.transactions('m_misha'))[0]).toMatchObject({ kind: 'transfer_out', title: 'Перевод: Друг Олег', channel: 'p2p' });
   });
 
   it('родитель может отклонить перевод ребёнка до 14', async () => {
