@@ -31,11 +31,13 @@ import {
   describePayload,
   formatMoney,
   gt,
-  savingsAvailable,
+  managesInterestRule,
   minor,
   monthlyInterest,
   monthlyInterestAt,
+  parentManagesSavings,
   presetLimits,
+  savingsAvailable,
   sub,
   type AccessDecision,
   type AccessRequestPayload,
@@ -126,7 +128,7 @@ export class MockBank implements BankApi {
           return parsed;
         }
         if (parsed.version === 1) {
-          const migrated: Db = { ...parsed, version: DB_VERSION, allocations: [], interestRules: [] };
+          const migrated = this.migrateV1(parsed);
           this.alignMonthly(migrated);
           this.opts.db.set(DB_KEY, JSON.stringify(migrated));
           return migrated;
@@ -138,6 +140,26 @@ export class MockBank implements BankApi {
     const fresh = seed(this.now());
     this.opts.db.set(DB_KEY, JSON.stringify(fresh));
     return fresh;
+  }
+
+  /** v1: копилки были отдельными счетами. Их остаток возвращаем на текущий счёт ребёнка, цели создаются заново. */
+  private migrateV1(legacy: Db): Db {
+    const accounts = legacy.accounts.map((a) => ({ ...a, status: a.status ?? 'active' }));
+    const isLegacyGoal = (a: Account) => (a.kind as string) === 'goal';
+    const kept = accounts.filter((a) => !isLegacyGoal(a));
+    for (const g of accounts.filter(isLegacyGoal)) {
+      const main = kept.find((a) => a.ownerId === g.ownerId && a.kind === 'current');
+      if (main) main.balance = add(main.balance, g.balance);
+    }
+    return {
+      ...legacy,
+      version: DB_VERSION,
+      accounts: kept,
+      cards: legacy.cards.map((c) => ({ ...c, blockedByAccount: c.blockedByAccount ?? false })),
+      goals: [],
+      interestRules: [],
+      allocations: [],
+    };
   }
 
   /** Карманные всегда переводятся 1-го числа: старые недельные расписания нормализуем. */
@@ -265,7 +287,7 @@ export class MockBank implements BankApi {
       this.requireParentOf(childId);
       const st = this.settings(childId);
       this.syncAgeGroup(this.member(childId), st);
-      if (st.ageGroup !== 'junior') throw new ApiError('FORBIDDEN', 'Родитель управляет копилками ребёнка до 14 лет');
+      if (!parentManagesSavings(st.ageGroup)) throw new ApiError('FORBIDDEN', 'Родитель управляет копилками ребёнка до 14 лет');
       return { childId, parent: true, settings: st };
     }
     const s = this.requireChild();
@@ -277,19 +299,26 @@ export class MockBank implements BankApi {
   /** Правило процентов: родитель — только до 14 лет; подросток — сам. */
   private interestActor(childId: Id, action: 'read' | 'manage' | 'accrue'): { parent: boolean; settings: ChildSettings } {
     const s = this.requireSession();
-    const child = this.member(childId);
-    if (s.role === 'parent') {
-      if (child.role !== 'child' || child.familyId !== s.familyId) throw new ApiError('FORBIDDEN', 'Нет доступа к этому ребёнку');
-      const st = this.settings(childId);
-      this.syncAgeGroup(child, st);
-      if (action !== 'read' && st.ageGroup !== 'junior') throw new ApiError('FORBIDDEN', 'С 14 лет ребёнок настраивает проценты сам');
-      return { parent: true, settings: st };
-    }
-    if (s.memberId !== childId) throw new ApiError('FORBIDDEN', 'Нет доступа');
+    const parent = s.role === 'parent';
+    const child = parent ? this.requireParentOf(childId).child : this.member(childId);
+    if (!parent && s.memberId !== childId) throw new ApiError('FORBIDDEN', 'Нет доступа');
     const st = this.settings(childId);
     this.syncAgeGroup(child, st);
-    if (st.ageGroup !== 'teen') throw new ApiError('FORBIDDEN', 'Правило процентов задаёт родитель');
-    return { parent: false, settings: st };
+    // Родитель подростка видит правило, но менять его не может.
+    if (!(parent && action === 'read') && !managesInterestRule(s.role, st.ageGroup)) {
+      throw new ApiError('FORBIDDEN', parent ? 'С 14 лет ребёнок настраивает проценты сам' : 'Правило процентов задаёт родитель');
+    }
+    return { parent, settings: st };
+  }
+
+  /** Сумму можно забрать с накопительного счёта, только если он не заблокирован и она не закреплена за копилками. */
+  private requireFreeSavings(db: Db, childId: Id, amount: Money, message = 'остальное закреплено за копилками'): Account {
+    const deposit = db.accounts.find((a) => a.ownerId === childId && a.kind === 'deposit');
+    if (!deposit) throw new ApiError('NOT_FOUND', 'Накопительный счёт не открыт');
+    if (deposit.status === 'blocked') throw new ApiError('POLICY_DENIED', 'Накопительный счёт заблокирован родителем');
+    const available = savingsAvailable(deposit, db.goals.filter((g) => g.ownerId === childId));
+    if (gt(amount, available)) throw new ApiError('VALIDATION', `Свободно только ${formatMoney(available)}${message ? ` — ${message}` : ''}`);
+    return deposit;
   }
 
   private removeGoal(db: Db, goal: Goal) {
@@ -857,6 +886,7 @@ export class MockBank implements BankApi {
       const deposit = db.accounts.find((a) => a.ownerId === childId && a.kind === 'deposit');
       if (!deposit) throw new ApiError('NOT_FOUND', 'Накопительный счёт не открыт');
       if (!goal && target!.kind !== 'deposit') throw new ApiError('NOT_FOUND', 'Счёт ребёнка не найден');
+      if (goal?.reachedAt) throw new ApiError('CONFLICT', 'Цель уже достигнута — пополнение закрыто');
 
       const title = goal ? `копилку «${goal.title}»` : 'накопительный счёт';
       this.transfer(
@@ -912,6 +942,10 @@ export class MockBank implements BankApi {
       const deposit = db.accounts.find((a) => a.ownerId === childId && a.kind === 'deposit');
       if (!deposit) throw new ApiError('NOT_FOUND', 'Накопительный счёт не открыт');
       const goals = db.goals.filter((g) => g.ownerId === childId);
+      const since = this.startOfMonth();
+      if (db.transactions.some((t) => t.accountId === deposit.id && t.kind === 'interest' && new Date(t.createdAt) >= since)) {
+        throw new ApiError('CONFLICT', 'Проценты за этот месяц уже начислены');
+      }
       const interest = monthlyInterest(deposit.balance);
       if (interest.minor <= 0) return { interest: ZERO, toGoals: ZERO, toFree: ZERO };
 
@@ -924,18 +958,21 @@ export class MockBank implements BankApi {
         const selected = record.goalIds
           .map((id) => goals.find((g) => g.id === id))
           .filter((g): g is Goal => !!g && !g.reachedAt && gt(g.target, g.balance));
+        // Делим поровну; что не влезло в заполненную цель, достаётся остальным.
         let remaining = pool;
-        selected.forEach((goal, i) => {
-          if (remaining <= 0) return;
-          const share = i === selected.length - 1 ? remaining : Math.floor(pool / selected.length);
-          const room = goal.target.minor - goal.balance.minor;
-          const amount = Math.min(share, room, remaining);
-          if (amount <= 0) return;
-          goal.balance = add(goal.balance, minor(amount));
-          allocated += amount;
-          remaining -= amount;
-          this.completeGoal(goal, childId);
-        });
+        let open = selected;
+        while (remaining > 0 && open.length > 0) {
+          const share = Math.max(1, Math.floor(remaining / open.length));
+          for (const goal of open) {
+            const amount = Math.min(share, goal.target.minor - goal.balance.minor, remaining);
+            if (amount <= 0) continue;
+            goal.balance = add(goal.balance, minor(amount));
+            allocated += amount;
+            remaining -= amount;
+          }
+          open = open.filter((g) => gt(g.target, g.balance));
+        }
+        for (const goal of selected) this.completeGoal(goal, childId);
       }
 
       const toGoals = minor(allocated);
@@ -1049,10 +1086,7 @@ export class MockBank implements BankApi {
 
   private depositMoveVolume(db: Db, childId: Id, input: DepositMoveInput) {
     if (input.amount.minor <= 0) throw new ApiError('VALIDATION', 'Сумма должна быть больше нуля');
-    const deposit = db.accounts.find((a) => a.ownerId === childId && a.kind === 'deposit');
-    if (!deposit) throw new ApiError('NOT_FOUND', 'Накопительный счёт не открыт');
-    const available = savingsAvailable(deposit, db.goals.filter((g) => g.ownerId === childId));
-    if (gt(input.amount, available)) throw new ApiError('VALIDATION', `Свободно только ${formatMoney(available)} — остальное закреплено за копилками`);
+    this.requireFreeSavings(db, childId, input.amount);
     if (input.recipientId) {
       const target = this.member(input.recipientId);
       if (target.id === childId || target.familyId !== this.member(childId).familyId) throw new ApiError('FORBIDDEN', 'Можно переводить только членам своей семьи');
@@ -1061,10 +1095,7 @@ export class MockBank implements BankApi {
   }
 
   private transferFromDeposit(db: Db, childId: Id, amount: Money, recipientId: Id | null, recipient: string) {
-    const deposit = db.accounts.find((a) => a.ownerId === childId && a.kind === 'deposit');
-    if (!deposit) throw new ApiError('NOT_FOUND', 'Накопительный счёт не открыт');
-    const available = savingsAvailable(deposit, db.goals.filter((g) => g.ownerId === childId));
-    if (gt(amount, available)) throw new ApiError('VALIDATION', `Свободно только ${formatMoney(available)} — остальное закреплено за копилками`);
+    const deposit = this.requireFreeSavings(db, childId, amount);
     const child = this.member(childId);
     const target = this.currentAccount(recipientId ?? childId);
     if (recipientId) {
@@ -1477,7 +1508,7 @@ export class MockBank implements BankApi {
       if (!deposit) throw new ApiError('CONFLICT', 'Сначала откройте накопительный счёт');
       const child = this.member(actor.childId);
 
-      if (!actor.parent && actor.settings.ageGroup === 'junior') {
+      if (!actor.parent && parentManagesSavings(actor.settings.ageGroup)) {
         const payload: AccessRequestPayload = { type: 'goal_close', goalId };
         const dup = db.requests.find((r) => r.childId === actor.childId && r.status === 'pending' && JSON.stringify(r.payload) === JSON.stringify(payload));
         const id = dup?.id ?? nextId(db, 'req');
@@ -1500,18 +1531,13 @@ export class MockBank implements BankApi {
       const actor = this.goalActor(childId);
       const goal = db.goals.find((g) => g.id === goalId && g.ownerId === actor.childId);
       if (!goal) throw new ApiError('NOT_FOUND', 'Копилка не найдена');
-      const deposit = db.accounts.find((a) => a.ownerId === actor.childId && a.kind === 'deposit');
-      if (!deposit) throw new ApiError('CONFLICT', 'Сначала откройте накопительный счёт');
+      if (!db.accounts.some((a) => a.ownerId === actor.childId && a.kind === 'deposit')) throw new ApiError('CONFLICT', 'Сначала откройте накопительный счёт');
       if (amount.minor <= 0) throw new ApiError('VALIDATION', 'Сумма должна быть больше нуля');
       if (direction === 'in' && goal.reachedAt) throw new ApiError('CONFLICT', 'Цель уже достигнута — пополнение закрыто');
       if (direction === 'out' && gt(amount, goal.balance)) throw new ApiError('VALIDATION', 'В копилке недостаточно средств');
-      if (direction === 'in' && deposit.status === 'blocked') throw new ApiError('POLICY_DENIED', 'Накопительный счёт заблокирован родителем');
-      if (direction === 'in') {
-        const available = savingsAvailable(deposit, db.goals.filter((g) => g.ownerId === actor.childId));
-        if (gt(amount, available)) throw new ApiError('VALIDATION', `Свободно только ${formatMoney(available)}`);
-      }
+      if (direction === 'in') this.requireFreeSavings(db, actor.childId, amount, '');
       const child = this.member(actor.childId);
-      if (direction === 'out' && !actor.parent && actor.settings.ageGroup === 'junior') {
+      if (direction === 'out' && !actor.parent && parentManagesSavings(actor.settings.ageGroup)) {
         const payload: AccessRequestPayload = { type: 'goal_withdraw', goalId, amount };
         const dup = db.requests.find((r) => r.childId === actor.childId && r.status === 'pending' && JSON.stringify(r.payload) === JSON.stringify(payload));
         if (dup) return { requestId: dup.id };
@@ -1574,6 +1600,7 @@ export class MockBank implements BankApi {
       const amount = input.unit === 'percent' ? minor(Math.floor((a.amount.minor * input.percent) / 100)) : input.amount;
       if (amount.minor <= 0) throw new ApiError('VALIDATION', 'Сумма должна быть больше нуля');
       if (gt(amount, a.amount)) throw new ApiError('VALIDATION', 'Больше суммы поступления');
+      if (main.status === 'blocked') throw new ApiError('POLICY_DENIED', 'Счёт заблокирован родителем');
       if (gt(amount, main.balance)) throw new ApiError('VALIDATION', 'На счёте уже не хватает средств');
       const goal = goalId ? db.goals.find((x) => x.id === goalId && x.ownerId === a.childId) : null;
       if (!goal) throw new ApiError('VALIDATION', 'Выберите цель');

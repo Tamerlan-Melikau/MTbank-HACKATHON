@@ -4,7 +4,7 @@ import { api } from '@/api';
 import { useAction, useQuery, useSession } from '@/app/data';
 import { goBack } from '@/app/router';
 import { toast } from '@/app/toast';
-import { DEPOSIT_ANNUAL_RATE_PCT, formatMoney, goalsReserved, monthlyInterest, monthlyInterestAt, parseMoney, savingsAvailable, savingsTotal, type Goal, type InterestRule } from '@/domain';
+import { DEPOSIT_ANNUAL_RATE_PCT, formatMoney, goalsReserved, managesInterestRule, monthlyInterest, monthlyInterestAt, parseMoney, savingsAvailable, savingsTotal, type Goal, type InterestRule } from '@/domain';
 import { Button, Card, Checkbox, DemoNote, Empty, Field, Row, Screen, Section, Select } from '@/ui/kit';
 import { Load, TxList } from '../shared';
 
@@ -23,7 +23,7 @@ export function Deposit({ id }: { id?: string }) {
       isParent ? Promise.resolve([]) : api.transferRecipients(),
     ]);
     const all = o.deposit ? await api.transactions(childId) : [];
-    const canManageInterest = !!o.deposit && (isParent ? o.settings.ageGroup === 'junior' : o.settings.ageGroup === 'teen');
+    const canManageInterest = !!o.deposit && managesInterestRule(isParent ? 'parent' : 'child', o.settings.ageGroup);
     const [rule, parentRate] = await Promise.all([
       canManageInterest ? api.interestRule(childId) : Promise.resolve(null),
       isParent ? api.parentInterestRate(childId) : Promise.resolve(0),

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { api } from '@/api';
 import { useAction, useQuery } from '@/app/data';
 import { toast } from '@/app/toast';
-import { formatMoney, parseMoney, REWARDS, savingsAvailable, type Goal } from '@/domain';
+import { formatMoney, parentManagesSavings, parseMoney, REWARDS, savingsAvailable, type Goal } from '@/domain';
 import { Button, ButtonRow, Card, Field, Locked, Progress, Screen, Section } from '@/ui/kit';
 import { Load } from '../shared';
 
@@ -38,22 +38,23 @@ export function Goals({ id }: { id?: string }) {
       <Load q={q}>
         {(o) => {
           const access = o.access['savings.goal'];
-          const canManage = isParent ? o.settings.ageGroup === 'junior' : access.kind === 'allowed';
+          const parentManages = parentManagesSavings(o.settings.ageGroup);
+          const canManage = isParent ? parentManages : access.kind === 'allowed';
           return (
             <>
-              {isParent && o.settings.ageGroup !== 'junior' && (
+              {isParent && !parentManages && (
                 <Locked
                   title="Копилки ребёнка 14+"
                   text="С 14 лет ребёнок управляет копилками сам. Родитель видит прогресс, но не может распоряжаться накоплениями."
                 />
               )}
-              {(!isParent || o.settings.ageGroup === 'junior') && o.goals.map((g) => (
+              {(!isParent || parentManages) && o.goals.map((g) => (
                 <GoalCard
                   key={g.id}
                   goal={g}
                   childId={id}
                   isParent={isParent}
-                  junior={!isParent && o.settings.ageGroup === 'junior'}
+                  junior={!isParent && parentManages}
                   onChanged={() => q.reload()}
                 />
               ))}
