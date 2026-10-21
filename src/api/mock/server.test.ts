@@ -589,4 +589,89 @@ describe('MockBank', () => {
     now = new Date('2026-11-01T09:00:00');
     expect((await bank.childOverview('m_misha')).account.balance.minor).toBe(before + 1500);
   });
+
+  it('v1: копилки-счета возвращаются на текущий счёт, данные дополняются', async () => {
+    const store = memoryStorage();
+    const legacy = seed(NOW);
+    const mishaCurrent = legacy.accounts.find((a) => a.ownerId === 'm_misha' && a.kind === 'current')!;
+    const goalAccount = { id: 'acc_legacy', ownerId: 'm_misha', kind: 'goal', title: 'Старая копилка', balance: byn(15), createdAt: NOW.toISOString() };
+    const { goals: _goals, interestRules: _rules, ...rest } = legacy;
+    store.set(
+      'fw.db',
+      JSON.stringify({
+        ...rest,
+        version: 1,
+        allocations: undefined,
+        accounts: [...legacy.accounts.map(({ status: _s, ...a }) => a), goalAccount],
+        cards: legacy.cards.map(({ blockedByAccount: _b, ...c }) => c),
+      }),
+    );
+    const bank = new MockBank({ db: store, session: memoryStorage(), now: () => new Date(NOW) });
+    await bank.signIn('m_anna');
+    const o = await bank.childOverview('m_misha');
+    expect(o.goals).toEqual([]);
+    expect(o.account).toMatchObject({ status: 'active' });
+    expect(o.account.balance.minor).toBe(mishaCurrent.balance.minor + 1500);
+    expect(o.card).toMatchObject({ blockedByAccount: false });
+  });
+
+  it('заблокированный счёт не даёт отложить поступление на цель', async () => {
+    const bank = make();
+    await bank.signIn('m_anna');
+    await bank.openDeposit('m_katya');
+    const { allocation } = await bank.topUpChild('m_katya', byn(50));
+    await bank.signIn('m_katya');
+    const { goalId } = await bank.createGoal('Курс', byn(100));
+    await bank.signIn('m_anna');
+    await bank.setAccountBlocked((await bank.childOverview('m_katya')).account.id, true);
+    await bank.signIn('m_katya');
+    await expect(bank.allocateIncoming(allocation!.id, { unit: 'amount', amount: byn(20) }, goalId)).rejects.toMatchObject({ code: 'POLICY_DENIED' });
+  });
+
+  it('с заблокированного накопительного счёта деньги не снимаются', async () => {
+    const bank = make();
+    await bank.signIn('m_anna');
+    await bank.openDeposit('m_katya');
+    const dep = (await bank.childOverview('m_katya')).deposit!;
+    await bank.topUpChild('m_katya', byn(50), dep.id);
+    await bank.setAccountBlocked(dep.id, true);
+    await bank.signIn('m_katya');
+    await expect(bank.moveDeposit({ amount: byn(10), recipientId: null, recipient: 'На основной счёт' })).rejects.toMatchObject({ code: 'POLICY_DENIED' });
+  });
+
+  it('проценты начисляются не чаще раза в месяц', async () => {
+    let now = new Date(NOW);
+    const bank = new MockBank({ db: memoryStorage(), session: memoryStorage(), now: () => new Date(now) });
+    await bank.signIn('m_anna');
+    await bank.accrueInterest('m_misha');
+    await expect(bank.accrueInterest('m_misha')).rejects.toMatchObject({ code: 'CONFLICT' });
+    now = new Date('2026-11-02T12:00:00');
+    expect((await bank.accrueInterest('m_misha')).interest.minor).toBeGreaterThan(0);
+  });
+
+  it('родитель не пополняет уже достигнутую цель', async () => {
+    const bank = make();
+    await bank.signIn('m_anna');
+    const goal = (await bank.childOverview('m_misha')).goals[0]!;
+    await bank.topUpChild('m_misha', byn(309), goal.id);
+    expect((await bank.childOverview('m_misha')).goals[0]!.reachedAt).not.toBeNull();
+    await expect(bank.topUpChild('m_misha', byn(10), goal.id)).rejects.toMatchObject({ code: 'CONFLICT' });
+  });
+
+  it('проценты, не поместившиеся в заполненную цель, уходят в другие выбранные', async () => {
+    const bank = make();
+    await bank.signIn('m_anna');
+    await bank.openDeposit('m_katya');
+    const dep = (await bank.childOverview('m_katya')).deposit!;
+    await bank.topUpChild('m_katya', byn(1200), dep.id);
+    await bank.signIn('m_katya');
+    const big = (await bank.createGoal('Ноутбук', byn(500))).goalId;
+    const small = (await bank.createGoal('Брелок', byn(0.05))).goalId;
+    await bank.setInterestRule('m_katya', { percent: 100, goalIds: [big, small] });
+    const r = await bank.accrueInterest('m_katya');
+    expect(r.toGoals.minor).toBe(r.interest.minor);
+    const goals = (await bank.childOverview('m_katya')).goals;
+    expect(goals.find((g) => g.id === small)!.balance.minor).toBe(5);
+    expect(goals.find((g) => g.id === big)!.balance.minor).toBe(r.interest.minor - 5);
+  });
 });

@@ -5,7 +5,7 @@
  */
 import type { AgeGroup } from './age';
 import { CAPABILITIES, LEVEL_ORDER, type CapabilityId, type Ceiling, type Level } from './capabilities';
-import type { ChildSettings } from './types';
+import type { ChildSettings, Role } from './types';
 
 export type DenyReason = 'parent' | 'age';
 
@@ -39,4 +39,14 @@ export function canParentSet(group: AgeGroup, id: CapabilityId, level: Level): b
 /** Уровни, которые родитель может выбрать в UI. */
 export function allowedLevels(group: AgeGroup, id: CapabilityId): Level[] {
   return (['off', 'approval', 'on'] as Level[]).filter((l) => canParentSet(group, id, l));
+}
+
+/** До 14 лет копилками управляет родитель; ребёнок снимает и удаляет их только через запрос. */
+export function parentManagesSavings(group: AgeGroup): boolean {
+  return group === 'junior';
+}
+
+/** Правило процентов задаёт родитель ребёнка до 14 лет, а с 14 лет — сам подросток. */
+export function managesInterestRule(role: Role, group: AgeGroup): boolean {
+  return role === 'parent' ? parentManagesSavings(group) : !parentManagesSavings(group);
 }
